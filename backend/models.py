@@ -120,3 +120,15 @@ class ImportServerRequest(BaseModel):
 
     server_name: str = Field(..., description="Name of the global server to import")
     project_name: str = Field(..., description="Target project name")
+
+
+class McpRegistryImportRequest(BaseModel):
+    """Request to import a server from the official MCP registry."""
+
+    server_name: str = Field(
+        ..., description="Registry server name (e.g. io.github.org/server)"
+    )
+    scope: Optional[str] = Field("global", description="global or project")
+    project_name: Optional[str] = Field(
+        None, description="Project name for project scope"
+    )
