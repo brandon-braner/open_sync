@@ -850,6 +850,14 @@ function McpRegistryBrowserPage({ addToast, projects }) {
 
     const debounceRef = useRef(null);
 
+    useEffect(() => {
+        return () => {
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, []);
+
     // Initial load
     useEffect(() => {
         doSearch('', null, false);
