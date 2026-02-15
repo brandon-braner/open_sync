@@ -1,0 +1,22 @@
+# CODEOWNERS file for open_sync
+# Each line is a file pattern followed by one or more owners.
+# Owners can be @username or email addresses.
+# More specific patterns take precedence over less specific patterns.
+
+# Default owner for everything in the repo
+* brandon.braner@gmail.com
+
+# Backend code
+/backend/ brandon.braner@gmail.com
+
+# Frontend code
+/frontend/ brandon.braner@gmail.com
+
+# Documentation
+/docs/ brandon.braner@gmail.com
+README.md brandon.braner@gmail.com
+
+# Configuration files
+*.toml brandon.braner@gmail.com
+*.ini brandon.braner@gmail.com
+Makefile brandon.braner@gmail.com
