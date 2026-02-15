@@ -114,6 +114,13 @@ uv run main.py
 
 The API is available at `http://localhost:8000` with interactive docs at `http://localhost:8000/docs`.
 
+### Running backend tests
+
+```bash
+cd backend
+python3 -m unittest discover -s tests -v
+```
+
 ---
 
 ## 🏗️ Architecture
