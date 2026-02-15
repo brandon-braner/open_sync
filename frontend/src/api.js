@@ -1,0 +1,104 @@
+const BASE = '';
+
+async function request(path, options = {}) {
+    const res = await fetch(`${BASE}${path}`, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options,
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+    }
+    return res.json();
+}
+
+function scopeParams(scope, projectPath) {
+    const params = new URLSearchParams();
+    params.set('scope', scope);
+    if (scope === 'project' && projectPath) {
+        params.set('project_path', projectPath);
+    }
+    return params.toString();
+}
+
+export const api = {
+    // Servers (merged: discovered + registry)
+    getServers: (scope = 'global', projectPath = null) =>
+        request(`/api/servers?${scopeParams(scope, projectPath)}`),
+
+    getTargets: (scope = 'global', projectPath = null) =>
+        request(`/api/targets?${scopeParams(scope, projectPath)}`),
+
+    sync: (serverNames, targetNames, scope = 'global', projectPath = null) =>
+        request('/api/sync', {
+            method: 'POST',
+            body: JSON.stringify({
+                server_names: serverNames,
+                target_names: targetNames,
+                scope,
+                project_path: projectPath,
+            }),
+        }),
+
+    removeServer: (name, targetNames, projectPath = null) => {
+        const params = projectPath ? `?project_path=${encodeURIComponent(projectPath)}` : '';
+        return request(`/api/servers/${encodeURIComponent(name)}${params}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ target_names: targetNames }),
+        });
+    },
+
+    // Registry (local OpenSync-managed servers)
+    getRegistry: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry?${params}`);
+    },
+
+    addToRegistry: (data) =>
+        request('/api/registry', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeFromRegistry: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    updateRegistryServer: (id, data) =>
+        request(`/api/registry/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    importFromGlobal: (serverName, projectName) =>
+        request('/api/registry/import', {
+            method: 'POST',
+            body: JSON.stringify({ server_name: serverName, project_name: projectName }),
+        }),
+
+    // Projects
+    getProjects: () => request('/api/projects'),
+
+    addProject: (name, path) =>
+        request('/api/projects', {
+            method: 'POST',
+            body: JSON.stringify({ name, path }),
+        }),
+
+    removeProject: (name) =>
+        request(`/api/projects/${encodeURIComponent(name)}`, {
+            method: 'DELETE',
+        }),
+
+    // Directory browser
+    browse: (path = '~') =>
+        request(`/api/browse?path=${encodeURIComponent(path)}`),
+
+    // Native OS folder picker
+    pickDirectory: () => request('/api/pick-directory'),
+};

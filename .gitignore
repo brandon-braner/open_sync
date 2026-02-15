@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+backend/.venv/
+backend/uv.lock
+
+# Database (created on first run via init_db)
+opensync.db
+opensync.db-wal
+opensync.db-shm
+
+# User-specific config
+dce.ini
+
+# User-specific data (legacy JSON, kept for reference)
+servers.json
+projects.json
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# AI Agent
+.roo
+.antigravity
+
+# Logs & output
+logs/
+output/
+
+# OS
+.DS_Store

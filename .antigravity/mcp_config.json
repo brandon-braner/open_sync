@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dce": {
+      "command": "dce mcp",
+      "args": [
+        "--project-dir",
+        "/Users/brandonbraner/code/personal_projects/open_sync"
+      ]
+    }
+  }
+}
