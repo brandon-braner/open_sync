@@ -1140,3 +1140,186 @@ header p {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ---- Browse MCP Registry ---- */
+
+.browse-scope-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.browse-scope-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.browse-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.browse-search-input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 0.92rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.browse-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, .12);
+}
+
+.browse-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.browse-spinner {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.browse-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.85rem;
+}
+
+.browse-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.browse-card:hover {
+  border-color: rgba(255, 255, 255, .14);
+  background: var(--bg-card-hover);
+}
+
+.browse-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.browse-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.browse-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.browse-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.browse-badge-type {
+  background: rgba(88, 166, 255, .12);
+  color: var(--accent);
+  border: 1px solid rgba(88, 166, 255, .2);
+}
+
+.browse-badge-transport {
+  background: rgba(124, 58, 237, .12);
+  color: #a78bfa;
+  border: 1px solid rgba(124, 58, 237, .2);
+}
+
+.browse-badge-version {
+  background: rgba(63, 185, 80, .1);
+  color: var(--success);
+  border: 1px solid rgba(63, 185, 80, .18);
+}
+
+.browse-card-name {
+  font-size: 0.72rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+  margin-bottom: 0.45rem;
+  word-break: break-all;
+}
+
+.browse-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  flex: 1;
+  margin-bottom: 0.5rem;
+}
+
+.browse-card-repo {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 0.65rem;
+  word-break: break-all;
+}
+
+.browse-card-repo:hover {
+  text-decoration: underline;
+}
+
+.browse-card-actions {
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
+}
+
+.browse-import-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 0.82rem !important;
+  padding: 0.5rem 1rem !important;
+}
+
+.browse-import-btn.imported {
+  background: rgba(63, 185, 80, .15) !important;
+  color: var(--success) !important;
+  box-shadow: none !important;
+}
+
+.browse-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.browse-load-more .btn {
+  min-width: 180px;
+  justify-content: center;
+}

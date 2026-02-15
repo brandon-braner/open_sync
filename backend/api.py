@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+import httpx
 
+import mcp_registry_client
 import project_registry
 import server_registry
 from config_manager import (
@@ -20,6 +22,7 @@ from config_targets import Scope, get_target, get_targets_by_scope
 from models import (
     AddServerRequest,
     ImportServerRequest,
+    McpRegistryImportRequest,
     McpServer,
     RemoveServerRequest,
     SyncRequest,
@@ -155,6 +158,144 @@ def remove_registry_server(
         )
     server_registry.remove_server(existing.name, scope, project_name)
     return {"message": f"Server '{existing.name}' removed from registry"}
+
+
+# ---- Official MCP Registry ------------------------------------------------
+
+
+_RUNTIME_MAP = {
+    "npm": "npx",
+    "pypi": "uvx",
+    "oci": "docker",
+}
+
+
+def _transform_registry_server(data: dict) -> McpServer:
+    """Convert an official MCP registry ServerJSON into a local McpServer."""
+    server_json = data.get("server", data)
+    name = server_json["name"]
+    title = server_json.get("title") or name.rsplit("/", 1)[-1]
+
+    # Prefer the first stdio package, fall back to first available
+    packages = server_json.get("packages") or []
+    remotes = server_json.get("remotes") or []
+    pkg = None
+    for p in packages:
+        transport = p.get("transport", {})
+        if transport.get("type") == "stdio":
+            pkg = p
+            break
+    if pkg is None and packages:
+        pkg = packages[0]
+
+    command = None
+    args: list[str] = []
+    env: dict[str, str] = {}
+    srv_type = None
+    url = None
+
+    if pkg:
+        reg_type = pkg.get("registryType", "")
+        identifier = pkg.get("identifier", "")
+        transport = pkg.get("transport", {})
+        srv_type = transport.get("type")
+        url = transport.get("url")
+
+        runtime = pkg.get("runtimeHint") or _RUNTIME_MAP.get(reg_type)
+        if runtime:
+            command = runtime
+            if reg_type == "oci":
+                args = ["run", "-i", "--rm", identifier]
+            else:
+                args = ["-y", identifier]
+        else:
+            command = identifier
+
+        # Package arguments
+        for pa in pkg.get("packageArguments") or []:
+            pa_name = pa.get("name", "")
+            pa_default = pa.get("default", "")
+            if pa.get("type") == "named" and pa_name:
+                flag = f"--{pa_name}" if not pa_name.startswith("-") else pa_name
+                args.append(flag)
+                if pa_default:
+                    args.append(pa_default)
+            elif pa_default:
+                args.append(pa_default)
+
+        # Runtime arguments
+        for ra in pkg.get("runtimeArguments") or []:
+            ra_name = ra.get("name", "")
+            ra_val = ra.get("value", ra.get("default", ""))
+            if ra.get("type") == "named" and ra_name:
+                flag = f"--{ra_name}" if not ra_name.startswith("-") else ra_name
+                args.append(flag)
+                if ra_val:
+                    args.append(ra_val)
+            elif ra_val:
+                args.append(ra_val)
+
+        # Environment variables
+        for ev in pkg.get("environmentVariables") or []:
+            ev_name = ev.get("name", "")
+            ev_val = ev.get("value") or ev.get("default") or ""
+            if ev_name:
+                env[ev_name] = ev_val
+    elif remotes:
+        # Remote-only server (streamable-http / sse)
+        remote = remotes[0]
+        srv_type = remote.get("type")
+        url = remote.get("url")
+
+    return McpServer(
+        name=title,
+        command=command,
+        args=args,
+        env=env,
+        type=srv_type,
+        url=url,
+        sources=[],
+    )
+
+
+@router.get("/mcp-registry/search")
+async def search_mcp_registry(
+    q: str = Query("", description="Search query"),
+    cursor: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Proxy search to the official MCP Registry."""
+    try:
+        return await mcp_registry_client.search_servers(q, cursor, limit)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"MCP Registry error: {exc.response.text}",
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to reach MCP Registry: {exc}"
+        )
+
+
+@router.post("/mcp-registry/import", response_model=McpServer)
+async def import_from_mcp_registry(req: McpRegistryImportRequest):
+    """Fetch a server from the official MCP Registry and add it locally."""
+    try:
+        data = await mcp_registry_client.get_server_detail(req.server_name)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"MCP Registry error: {exc.response.text}",
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Failed to reach MCP Registry: {exc}"
+        )
+
+    srv = _transform_registry_server(data)
+    scope = req.scope or "global"
+    return server_registry.add_server(srv, scope, req.project_name)
 
 
 # ---- Projects --------------------------------------------------------------

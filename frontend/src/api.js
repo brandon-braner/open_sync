@@ -101,4 +101,21 @@ export const api = {
 
     // Native OS folder picker
     pickDirectory: () => request('/api/pick-directory'),
+
+    // Official MCP Registry (registry.modelcontextprotocol.io)
+    searchMcpRegistry: (query = '', cursor = null, limit = 20) => {
+        const params = new URLSearchParams({ q: query, limit: String(limit) });
+        if (cursor) params.set('cursor', cursor);
+        return request(`/api/mcp-registry/search?${params}`);
+    },
+
+    importFromMcpRegistry: (serverName, scope = 'global', projectName = null) =>
+        request('/api/mcp-registry/import', {
+            method: 'POST',
+            body: JSON.stringify({
+                server_name: serverName,
+                scope,
+                project_name: projectName,
+            }),
+        }),
 };
