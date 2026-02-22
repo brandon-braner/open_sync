@@ -1,3 +1,26 @@
+# Gemini CLI (Google)
+# Docs: https://github.com/google-gemini/gemini-cli
+#
+# MCP:
+#   Global config: ~/.gemini/settings.json   (root key: "mcpServers", nested)
+#   Project config: .gemini/settings.json    (root key: "mcpServers", nested)
+#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/mcp.md
+#
+# Skills:
+#   Global:  ~/.gemini/skills/               (native markdown skill files; also supports ~/.agents/skills/)
+#   Project: <project>/.gemini/skills/
+#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/skills.md
+#
+# Workflows (slash commands / .toml files):
+#   Global:  ~/.gemini/commands/             (native — global slash commands)
+#   Project: <project>/.gemini/commands/
+#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/slash-commands.md
+#
+# LLM / Model settings:
+#   Global:  ~/.gemini/settings.json
+#   Project: .gemini/settings.json
+#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/settings.md
+
 from integrations.base import Integration, ScopedConfig
 
 gemini_cli = Integration(
@@ -14,10 +37,8 @@ gemini_cli = Integration(
         ),
     },
     skill={
-        "global": ScopedConfig(config_path="~/.gemini/settings.json", native="false"),
-        "project": ScopedConfig(
-            config_path="<project>/.gemini/settings.json", native="false"
-        ),
+        "global": ScopedConfig(config_path="~/.gemini/skills/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.gemini/skills/", native="true"),
     },
     workflow={
         "global": ScopedConfig(config_path="~/.gemini/commands/", native="true"),

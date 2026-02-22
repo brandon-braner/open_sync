@@ -1,3 +1,26 @@
+# Windsurf (Codeium)
+# Docs: https://docs.windsurf.com
+#
+# MCP:
+#   Global config: ~/.codeium/windsurf/mcp_config.json   (root key: "mcpServers")
+#   Project config: .windsurf/mcp_config.json             (root key: "mcpServers")
+#   Access via: Windsurf Settings → Cascade → Plugins (MCP servers) → View raw config
+#   Ref: https://docs.windsurf.com/windsurf/mcp
+#
+# Skills:
+#   Global:  ~/.windsurf/skills/             (native markdown skill files)
+#   Project: <project>/.windsurf/skills/
+#   Ref: https://docs.windsurf.com/windsurf/memories-and-rules
+#
+# Workflows:
+#   Global:  ~/.windsurf/workflows/          (native markdown workflow files)
+#   Project: <project>/.windsurf/workflows/
+#
+# LLM / Model settings:
+#   Global:  ~/.codeium/windsurf/mcp_settings.json
+#   Project: .windsurf/mcp_settings.json
+#   Ref: https://docs.windsurf.com/windsurf/settings
+
 from integrations.base import Integration, ScopedConfig
 
 windsurf = Integration(

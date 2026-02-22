@@ -318,11 +318,6 @@ class ContinueDiscoveryTests(BackendTestCase):
         self.assertEqual(1, len(entries))
         self.assertEqual("sk-new", entries[0]["apiKey"])
 
-    def test_list_targets_includes_continue(self):
-        targets = llm_provider_discovery.list_llm_provider_targets()
-        ids = [t["id"] for t in targets]
-        self.assertIn("continue_global", ids)
-
 
 # ===========================================================================
 # Aider tests
@@ -891,8 +886,6 @@ class DispatcherTests(BackendTestCase):
         expected = {
             "opencode_global",
             "opencode_project",
-            "continue_global",
-            "continue_project",
             "aider_global",
             "aider_project",
             "claude_code_global",

@@ -40,6 +40,13 @@ class Integration(BaseModel):
     color: str = "#888888"
     category: str = "editor"  # editor | desktop | cli | plugin
 
+    # Feature-support flags — set to False to hide from the corresponding page
+    # even when config dicts are populated.
+    mcp_support: bool = True
+    skill_support: bool = True
+    workflow_support: bool = True
+    llm_support: bool = True
+
     # Each dict maps scope string ("global" or "project") → ScopedConfig.
     # Omitting a key means the tool is hidden from that page.
     mcp: dict[str, ScopedConfig] = Field(default_factory=dict)
@@ -54,6 +61,8 @@ class Integration(BaseModel):
     # ------------------------------------------------------------------
 
     def mcp_dicts(self) -> list[dict[str, Any]]:
+        if not self.mcp_support:
+            return []
         result = []
         for scope, cfg in self.mcp.items():
             result.append(
@@ -73,6 +82,8 @@ class Integration(BaseModel):
         return result
 
     def skill_dicts(self) -> list[dict[str, Any]]:
+        if not self.skill_support:
+            return []
         return [
             {
                 "id": f"{self.id}_{scope}",
@@ -87,6 +98,8 @@ class Integration(BaseModel):
         ]
 
     def workflow_dicts(self) -> list[dict[str, Any]]:
+        if not self.workflow_support:
+            return []
         return [
             {
                 "id": f"{self.id}_{scope}",
@@ -101,6 +114,8 @@ class Integration(BaseModel):
         ]
 
     def llm_dicts(self) -> list[dict[str, Any]]:
+        if not self.llm_support:
+            return []
         return [
             {
                 "id": f"{self.id}_{scope}",

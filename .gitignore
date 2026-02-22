@@ -8,6 +8,7 @@ backend/uv.lock
 opensync.db
 opensync.db-wal
 opensync.db-shm
+.pytest_cache/
 
 # User-specific config
 dce.ini

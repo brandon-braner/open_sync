@@ -1,3 +1,21 @@
+# Cursor
+# Docs: https://docs.cursor.com
+#
+# MCP:
+#   Global config: ~/.cursor/mcp.json        (root key: "mcpServers")
+#   Project config: .cursor/mcp.json         (root key: "mcpServers")
+#   Access via: Cursor Settings → MCP
+#   Ref: https://docs.cursor.com/context/model-context-protocol
+#
+# Skills / Workflows (Cursor Rules — .mdc files):
+#   Global:  ~/.cursor/rules/                (rules applied across all projects)
+#   Project: <project>/.cursor/rules/        (per-project rules, version-controlled)
+#   Ref: https://docs.cursor.com/context/rules-for-ai
+#
+# LLM / Model settings:
+#   Global: ~/.cursor/  (read-only — managed through Cursor Settings UI)
+#   Ref: https://docs.cursor.com/settings/models
+
 from integrations.base import Integration, ScopedConfig
 
 cursor = Integration(
