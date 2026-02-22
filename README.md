@@ -20,91 +20,103 @@ OpenSync fixes this. Register your MCP servers once, pick the targets you care a
 - **LLM provider management** — Discover, register, and sync LLM API keys and base URLs across all your AI tools.
 - **One-click sync** — Push servers, skills, workflows, or providers to any combination of supported targets at once.
 - **Auto-discovery** — Detects servers, skills, workflows, and LLM configs already present in your installed tools and imports them.
-- **Project scanner** — Point OpenSync at any project directory and it will automatically discover all agent artifacts (Antigravity, Cursor, Claude Code, Continue, Aider, Copilot, Windsurf, OpenCode, and more).
+- **Project scanner** — Point OpenSync at any project directory and it will automatically discover all agent artifacts (Antigravity, Cursor, Claude Code, Copilot CLI, Gemini CLI, OpenCode, VS Code, Windsurf, and more).
 - **Global & project scopes** — Manage a system-wide set of configurations *and* per-project overrides.
 - **Config backups** — Timestamped backups are created before every write, so nothing is ever lost.
 - **Format translation** — Automatically converts between the different JSON/YAML/Markdown schemas each tool expects.
 - **Project management** — Create named projects, browse directories, and import global configs into any project.
 - **Two-tier Web UI** — A React-based dashboard with a top-level section selector and contextual sub-navigation for MCP Servers, Skills, Workflows, and LLM Providers.
+- **Unified integration model** — All tool definitions live in a single `integrations/` package powered by Pydantic, making it trivial to add new tools.
 
 ---
 
-## 🎯 Supported MCP Server Targets
+## 🎯 Supported Integrations
+
+OpenSync currently supports **10 AI tools** across editors, desktop apps, and CLIs. Each integration defines which feature types it supports and at which scopes (global, project, or both).
+
+### MCP Server Targets
 
 | Category | Target | Scope |
 |----------|--------|-------|
 | **Editors** | Cursor | Global & Project |
 | | VS Code | Global & Project |
 | | Antigravity | Global & Project |
-| | JetBrains (Copilot) | Global |
+| | Windsurf | Global & Project |
 | **Desktop** | Claude Desktop | Global |
 | **CLI** | Claude Code | Global & Project |
 | | Gemini CLI | Global & Project |
 | | GitHub Copilot CLI | Global & Project |
 | | OpenCode | Global & Project |
-| **Plugins** | Cline (VS Code) | Global |
-| | Roo Code (VS Code) | Global & Project |
-| | Roo Code (Antigravity) | Global & Project |
-| | Kilo Code (VS Code) | Global & Project |
+
+> [!NOTE]
+> Warp does not support MCP servers natively.
 
 ---
 
-## 🧠 Supported Skills Targets
+### Skills Targets
 
 Skills are custom instructions, system prompts, or rule files injected into AI agents. OpenSync can read and write skills across:
 
-| Target | Scope |
-|--------|-------|
-| OpenCode (global / project) | Global & Project |
-| Continue | Global & Project |
-| Aider | Global & Project |
-| Claude Code | Global & Project |
-| Roo Code / Cline | Global & Project |
-| Windsurf | Global & Project |
-| Cursor (rules) | Global & Project |
-| Plandex | Global & Project |
-| Gemini CLI | Global & Project |
-| Amp (Sourcegraph) | Global & Project |
-| Antigravity | Global & Project |
+| Target | Scope | Native support |
+|--------|-------|:-:|
+| OpenCode | Global & Project | ✅ |
+| Claude Code | Global & Project | ✅ |
+| Gemini CLI | Global & Project | ✅ |
+| Cursor (rules) | Global & Project | ✅ |
+| Windsurf | Global & Project | ✅ |
+| Antigravity | Global & Project | ✅ |
+| GitHub Copilot CLI | Global & Project | ✅ |
+| Warp | Global & Project | ✅ |
 
 ---
 
-## 🔁 Supported Workflows Targets
+### Workflows Targets
 
-Workflows are reusable, step-based slash-command sequences. OpenSync injects them natively (e.g. OpenCode `scripts`, Continue `slashCommands`) or as delimited text blocks in existing config files.
+Workflows are reusable, step-based slash-command sequences. OpenSync injects them natively where supported or as delimited text blocks in existing config files.
 
 | Target | Scope | Native support |
 |--------|-------|:-:|
-| OpenCode (global / project) | Global & Project | ✅ |
-| Continue | Global & Project | ✅ |
-| Aider | Global & Project | — |
-| Claude Code | Global & Project | — |
-| Roo Code / Cline | Global & Project | — |
-| Windsurf | Global & Project | — |
-| Cursor (rules) | Global & Project | — |
-| Plandex | Global & Project | — |
-| Gemini CLI | Global & Project | — |
-| Amp (Sourcegraph) | Global & Project | — |
-| Antigravity | Global & Project | — |
+| OpenCode | Global & Project | ✅ |
+| Gemini CLI | Global & Project | ✅ |
+| Cursor (commands) | Global & Project | ✅ |
+| Windsurf | Global & Project | ✅ |
+| Antigravity | Global & Project | ✅ |
+| Warp | Global & Project | ✅ |
 
 ---
 
-## 🤖 Supported LLM Provider Targets
+### LLM Provider Targets
 
 OpenSync can discover your existing LLM API keys and model configs from installed tools, and sync them back out to any of the supported targets.
 
 | Target | Scope |
 |--------|-------|
 | OpenCode | Global & Project |
-| Continue | Global & Project |
-| Aider | Global & Project |
 | Claude Code | Global & Project |
-| Roo Code / Cline | Global & Project |
-| Windsurf | Global & Project |
-| Plandex | Global & Project |
 | Gemini CLI | Global & Project |
-| Amp (Sourcegraph) | Global & Project |
+| Windsurf | Global & Project |
 | Cursor | Global (read-only discovery) |
+
+---
+
+### Full Integration Matrix
+
+A quick reference showing every integration and its supported feature types:
+
+| Integration | Category | MCP | Skills | Workflows | LLM |
+|-------------|----------|:---:|:------:|:---------:|:---:|
+| Antigravity | Editor | ✅ | ✅ | ✅ | — |
+| Claude Code | CLI | ✅ | ✅ | — | ✅ |
+| Claude Desktop | Desktop | ✅ | — | — | — |
+| Copilot CLI | CLI | ✅ | ✅ | — | — |
+| Cursor | Editor | ✅ | ✅ | ✅ | ✅* |
+| Gemini CLI | CLI | ✅ | ✅ | ✅ | ✅ |
+| OpenCode | CLI | ✅ | ✅ | ✅ | ✅ |
+| VS Code | Editor | ✅ | — | — | — |
+| Warp | Desktop | — | ✅ | ✅ | — |
+| Windsurf | Editor | ✅ | ✅ | ✅ | ✅ |
+
+*\* Read-only discovery*
 
 ---
 
@@ -196,6 +208,20 @@ open_sync/
 │   ├── main.py                     # Uvicorn entrypoint
 │   ├── api.py                      # REST API routes
 │   ├── models.py                   # Pydantic request/response models
+│   ├── integrations/               # Unified integration definitions
+│   │   ├── __init__.py             # ALL_INTEGRATIONS registry
+│   │   ├── base.py                 # Integration & ScopedConfig Pydantic models
+│   │   ├── antigravity.py          # Antigravity (Google DeepMind)
+│   │   ├── claude_code.py          # Claude Code (Anthropic)
+│   │   ├── claude_desktop.py       # Claude Desktop (Anthropic)
+│   │   ├── copilot_cli.py          # GitHub Copilot CLI
+│   │   ├── cursor.py               # Cursor
+│   │   ├── gemini_cli.py           # Gemini CLI (Google)
+│   │   ├── opencode.py             # OpenCode
+│   │   ├── vscode.py               # VS Code (Microsoft)
+│   │   ├── warp.py                 # Warp Terminal
+│   │   └── windsurf.py             # Windsurf (Codeium)
+│   ├── unified_targets.py          # Accessor functions over ALL_INTEGRATIONS
 │   ├── config_targets.py           # MCP target definitions (paths, formats, scopes)
 │   ├── config_manager.py           # Read / write / sync logic for MCP configs
 │   ├── server_registry.py          # CRUD for the MCP server registry
@@ -214,12 +240,23 @@ open_sync/
 │   ├── src/
 │   │   ├── App.jsx                 # Main application component (two-tier nav)
 │   │   ├── api.js                  # API client
+│   │   ├── colors.js               # Integration color palette
 │   │   ├── main.jsx                # React entry point
 │   │   └── index.css               # Styles
 │   └── package.json                # Node dependencies
 ├── run.sh                          # Dev launcher (backend + frontend)
 └── opensync.db                     # SQLite database (auto-created on first run)
 ```
+
+### Adding a new integration
+
+All tool definitions live in the `backend/integrations/` package. To add a new AI tool:
+
+1. Create `backend/integrations/{tool_name}.py`
+2. Define an `Integration` instance with its supported features and config paths
+3. Import it in `backend/integrations/__init__.py` and add it to `ALL_INTEGRATIONS`
+
+The `unified_targets.py` module automatically derives flat target lists from the integration registry — no need to update multiple files.
 
 ---
 
