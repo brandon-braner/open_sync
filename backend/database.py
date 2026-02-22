@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS workflows (
     scope    TEXT NOT NULL DEFAULT 'global',
     project  TEXT NOT NULL DEFAULT '',
     description TEXT,
-    steps    TEXT DEFAULT '[]',
+    content  TEXT,
     UNIQUE (name, scope, project)
 );
 
@@ -190,10 +190,35 @@ def init_db() -> None:
     try:
         _create_tables(conn)
         _ensure_id_column(conn)
+        _migrate_steps_to_content(conn)
         if _tables_empty(conn):
             _migrate_from_json(conn)
     finally:
         conn.close()
+
+
+def _migrate_steps_to_content(conn: sqlite3.Connection) -> None:
+    """Rename the `steps` column to `content` in the workflows table if needed."""
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(workflows)").fetchall()]
+    if "steps" in cols and "content" not in cols:
+        # SQLite doesn't support RENAME COLUMN on older versions — recreate table
+        conn.executescript("""
+            ALTER TABLE workflows RENAME TO _workflows_old;
+            CREATE TABLE workflows (
+                id       TEXT NOT NULL PRIMARY KEY,
+                name     TEXT NOT NULL,
+                scope    TEXT NOT NULL DEFAULT 'global',
+                project  TEXT NOT NULL DEFAULT '',
+                description TEXT,
+                content  TEXT,
+                UNIQUE (name, scope, project)
+            );
+            INSERT INTO workflows (id, name, scope, project, description, content)
+            SELECT id, name, scope, project, description, steps FROM _workflows_old;
+            DROP TABLE _workflows_old;
+        """)
+        conn.commit()
+        logger.info("Migrated workflows table: steps -> content")
 
 
 def _ensure_id_column(conn: sqlite3.Connection) -> None:

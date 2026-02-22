@@ -38,7 +38,6 @@ def _make_artifact(
     source: str,
     description: str | None = None,
     content: str = "",
-    steps: list[str] | None = None,
     file_path: str = "",
 ) -> dict[str, Any]:
     return {
@@ -47,7 +46,6 @@ def _make_artifact(
         "source": source,
         "description": description,
         "content": content,
-        "steps": steps or [],
         "file_path": file_path,
     }
 
@@ -130,7 +128,6 @@ def _scan_antigravity(root: Path) -> list[dict]:
         fm, body = _parse_frontmatter(text)
         name = fm.get("name") or _stem_to_name(f)
         desc = fm.get("description") or fm.get("desc")
-        steps = _workflow_steps_from_markdown(body)
         results.append(
             _make_artifact(
                 name=name,
@@ -138,7 +135,6 @@ def _scan_antigravity(root: Path) -> list[dict]:
                 source="Antigravity (.agent/workflows)",
                 description=desc,
                 content=body,
-                steps=steps,
                 file_path=str(f),
             )
         )
@@ -306,12 +302,11 @@ def _scan_opencode(root: Path) -> list[dict]:
     if isinstance(scripts, dict):
         for key, script_def in scripts.items():
             if isinstance(script_def, dict):
-                cmd = script_def.get("command", "")
-                desc = script_def.get("description", "")
-                steps = [cmd] if cmd else []
+                s_desc = script_def.get("description") or None
+                s_content = script_def.get("command") or ""
             elif isinstance(script_def, str):
-                desc = ""
-                steps = [script_def]
+                s_desc = None
+                s_content = script_def
             else:
                 continue
             results.append(
@@ -319,9 +314,8 @@ def _scan_opencode(root: Path) -> list[dict]:
                     name=key.replace("-", " ").replace("_", " ").title(),
                     artifact_type="workflow",
                     source="OpenCode (opencode.json scripts)",
-                    description=desc or None,
-                    content=str(script_def),
-                    steps=steps,
+                    description=s_desc,
+                    content=s_content,
                     file_path=str(f),
                 )
             )
@@ -496,7 +490,6 @@ def commit_artifacts(
             name = (item.get("name") or "Unnamed").strip()
             desc = item.get("description")
             content = item.get("content") or ""
-            steps = item.get("steps") or []
 
             if artifact_type == "skill":
                 from models import Skill
@@ -517,9 +510,7 @@ def commit_artifacts(
                     id=None,
                     name=name,
                     description=desc,
-                    steps=steps,
-                    scope=scope,
-                    project_name=project_name,
+                    content=content,
                 )
                 workflow_registry.add_workflow(wf, scope, project_name)
             else:

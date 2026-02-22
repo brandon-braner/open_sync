@@ -192,6 +192,22 @@ WORKFLOW_TARGETS: list[dict[str, str]] = [
         "native": "false",
     },
     {
+        "id": "plandex_project",
+        "display_name": "Plandex (project)",
+        "config_path": "<project>/.plandex/",
+        "scope": "project",
+        "color": "#F39C12",
+        "native": "false",
+    },
+    {
+        "id": "amp_project",
+        "display_name": "Amp (project)",
+        "config_path": "<project>/.amp/settings.json",
+        "scope": "project",
+        "color": "#E74C3C",
+        "native": "false",
+    },
+    {
         "id": "gemini_cli_project",
         "display_name": "Gemini CLI (project)",
         "config_path": "<project>/.gemini/settings.json",
@@ -285,9 +301,9 @@ def _workflow_to_text(workflow: Workflow) -> str:
     lines = [f"# Workflow: {workflow.name}"]
     if workflow.description:
         lines.append(workflow.description)
-    lines.append("")
-    for i, step in enumerate(workflow.steps or [], 1):
-        lines.append(f"{i}. {step}")
+    if workflow.content:
+        lines.append("")
+        lines.append(workflow.content)
     return "\n".join(lines)
 
 
@@ -334,7 +350,7 @@ def _extract_workflow_blocks(text: str) -> list[Workflow]:
             Workflow(
                 name=name,
                 description=desc,
-                steps=steps,
+                content=content,
                 sources=["workflow_discovery"],
             )
         )
@@ -354,22 +370,19 @@ def _discover_opencode_global(config_path: Path | None = None) -> list[Workflow]
         return []
     results = []
     for name, val in scripts.items():
-        steps = []
         if isinstance(val, dict):
-            cmd = val.get("command") or val.get("run")
-            if cmd:
-                steps = [cmd] if isinstance(cmd, str) else list(cmd)
             desc = val.get("description", "")
+            wf_content = val.get("command") or val.get("run") or ""
         elif isinstance(val, str):
-            steps = [val]
             desc = ""
+            wf_content = val
         else:
             continue
         results.append(
             Workflow(
                 name=name,
                 description=desc,
-                steps=steps,
+                content=wf_content,
                 sources=["opencode_global"],
             )
         )
@@ -395,9 +408,7 @@ def _write_workflow_to_opencode(
         data = _read_json(path)
         if "scripts" not in data or not isinstance(data["scripts"], dict):
             data["scripts"] = {}
-        entry: dict[str, Any] = {
-            "command": " && ".join(workflow.steps) if workflow.steps else ""
-        }
+        entry: dict[str, Any] = {"command": workflow.content or ""}
         if workflow.description:
             entry["description"] = workflow.description
         data["scripts"][workflow.name] = entry
@@ -541,11 +552,18 @@ def _discover_claude_code(config_path: Path | None = None) -> list[Workflow]:
     if isinstance(workflows_raw, dict):
         results = []
         for name, val in workflows_raw.items():
-            steps = val.get("steps", []) if isinstance(val, dict) else []
+            wf_content = (
+                val.get("content") or "\n".join(val.get("steps", []))
+                if isinstance(val, dict)
+                else ""
+            )
             desc = val.get("description", "") if isinstance(val, dict) else ""
             results.append(
                 Workflow(
-                    name=name, description=desc, steps=steps, sources=["claude_code"]
+                    name=name,
+                    description=desc,
+                    content=wf_content,
+                    sources=["claude_code"],
                 )
             )
         if results:
@@ -565,7 +583,7 @@ def _write_workflow_to_claude_code(
             data["workflows"] = {}
         data["workflows"][workflow.name] = {
             "description": workflow.description or "",
-            "steps": workflow.steps or [],
+            "content": workflow.content or "",
         }
         _write_json(path, data)
         return {
@@ -780,17 +798,11 @@ def _discover_cursor(rules_dir: Path | None = None) -> list[Workflow]:
                 w.sources = ["cursor_global"]
             results.extend(wfs)
         else:
-            # Parse numbered steps from raw file
-            steps = []
-            for line in text.splitlines():
-                m = re.match(r"^\d+\.\s+(.+)$", line.strip())
-                if m:
-                    steps.append(m.group(1))
-            if steps:
+            if text:
                 results.append(
                     Workflow(
                         name=f.stem,
-                        steps=steps,
+                        content=text.strip(),
                         sources=["cursor_global"],
                     )
                 )
@@ -853,12 +865,9 @@ def _write_workflow_to_antigravity(
         base.mkdir(parents=True, exist_ok=True)
         slug = workflow.name.lower().replace(" ", "-").replace("/", "-")
         wf_file = base / f"{slug}.md"
-        steps_text = "\n".join(
-            f"{i + 1}. {s}" for i, s in enumerate(workflow.steps or [])
-        )
         content = (
             f"---\nname: {workflow.name}\ndescription: {workflow.description or ''}\n---\n\n"
-            f"# {workflow.name}\n\n{workflow.description or ''}\n\n{steps_text}"
+            f"# {workflow.name}\n\n{workflow.description or ''}\n\n{workflow.content or ''}"
         ).strip()
         _write_text(wf_file, content)
         return {
@@ -969,10 +978,29 @@ def write_workflow_to_target(
         return _write_workflow_to_windsurf(workflow)
     if target_id == "plandex":
         return _write_workflow_to_plandex(workflow)
-    if target_id == "gemini_cli":
-        return _write_workflow_to_gemini_cli(workflow)
+    if target_id == "plandex_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for plandex_project target",
+            }
+        return _write_workflow_to_plandex(
+            workflow, home_path=Path(project_path) / ".plandex"
+        )
     if target_id == "amp":
         return _write_workflow_to_amp(workflow)
+    if target_id == "amp_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for amp_project target",
+            }
+        return _write_workflow_to_amp(
+            workflow, config_path=Path(project_path) / ".amp" / "settings.json"
+        )
+    if target_id == "gemini_cli":
+        return _write_workflow_to_gemini_cli(workflow)
+    # (amp global handled above)
     if target_id == "cursor_global":
         return _write_workflow_to_cursor(workflow, target_id="cursor_global")
     if target_id == "cursor_project":

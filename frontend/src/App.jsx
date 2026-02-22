@@ -275,7 +275,7 @@ function TargetSelector({ targets, selected, onToggle }) {
                                 <div className="label">{t.display_name}</div>
                                 <div className="meta">
                                     {t.config_exists
-                                        ? `${t.server_count} server${t.server_count !== 1 ? 's' : ''}`
+                                        ? `${t.server_count} item${t.server_count !== 1 ? 's' : ''}`
                                         : 'config not found'}
                                 </div>
                             </div>
@@ -1092,13 +1092,15 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         }
         try {
             setLoading(true);
+            // getServers/getTargets use project_path; getSkills/getWorkflows/getLlmProviders use project_name
             const pp = scope === 'project' ? projectPath : null;
+            const pn = scope === 'project' ? selectedProject : null;
             const [srv, tgt, sk, wf, lm] = await Promise.all([
                 api.getServers(scope, pp),
                 api.getTargets(scope, pp),
-                api.getSkills(scope, pp),
-                api.getWorkflows(scope, pp),
-                api.getLlmProviders(scope, pp)
+                api.getSkills(scope, pn),
+                api.getWorkflows(scope, pn),
+                api.getLlmProviders(scope, pn)
             ]);
             setServers(srv);
             setTargets(tgt);
@@ -1110,7 +1112,7 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         } finally {
             setLoading(false);
         }
-    }, [scope, projectPath, addToast]);
+    }, [scope, projectPath, selectedProject, addToast]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -1361,6 +1363,168 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
     );
 }
 
+/* ===== Markdown Editor ===== */
+
+/** Minimal markdown → HTML renderer (no external deps). */
+function renderMarkdown(md) {
+    if (!md) return '';
+    let html = md
+        // Headings
+        .replace(/^#{6}\s+(.+)$/gm, '<h6>$1</h6>')
+        .replace(/^#{5}\s+(.+)$/gm, '<h5>$1</h5>')
+        .replace(/^#{4}\s+(.+)$/gm, '<h4>$1</h4>')
+        .replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>')
+        .replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>')
+        .replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>')
+        // Code blocks (``` fenced)
+        .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
+        // Inline code
+        .replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`)
+        // Bold + italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        // Blockquotes
+        .replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+        // Unordered list items
+        .replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>')
+        // Ordered list items
+        .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+        // Horizontal rules
+        .replace(/^(-{3,}|\*{3,})$/gm, '<hr>')
+        // Line breaks → paragraph breaks
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+
+    // Wrap bare li elements in ul
+    html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, match =>
+        `<ul>${match.replace(/<br>/g, '')}</ul>`);
+
+    return `<p>${html}</p>`
+        .replace(/<p><\/p>/g, '')
+        .replace(/<p>(<h[1-6]>)/g, '$1')
+        .replace(/(<\/h[1-6]>)<\/p>/g, '$1')
+        .replace(/<p>(<pre>)/g, '$1')
+        .replace(/(<\/pre>)<\/p>/g, '$1')
+        .replace(/<p>(<ul>)/g, '$1')
+        .replace(/(<\/ul>)<\/p>/g, '$1')
+        .replace(/<p>(<hr>)<\/p>/g, '$1')
+        .replace(/<p>(<blockquote>)/g, '$1')
+        .replace(/(<\/blockquote>)<\/p>/g, '$1');
+}
+
+function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const TOOLBAR = [
+    { label: 'B', title: 'Bold', wrap: ['**', '**'], icon: '𝐁' },
+    { label: 'I', title: 'Italic', wrap: ['*', '*'], icon: '𝐼' },
+    { label: 'H2', title: 'Heading 2', prefix: '## ', icon: 'H₂' },
+    { label: 'H3', title: 'Heading 3', prefix: '### ', icon: 'H₃' },
+    { label: '`', title: 'Inline code', wrap: ['`', '`'], icon: '`' },
+    { label: '```', title: 'Code block', wrap: ['```\n', '\n```'], icon: '⟨⟩' },
+    { label: '-', title: 'List item', prefix: '- ', icon: '≡' },
+    { label: 'hr', title: 'Divider', insert: '\n---\n', icon: '—' },
+    { label: '>', title: 'Blockquote', prefix: '> ', icon: '❝' },
+];
+
+function MarkdownEditor({ value, onChange, placeholder, rows = 12 }) {
+    const taRef = useRef(null);
+    const [mode, setMode] = useState('split'); // 'write' | 'preview' | 'split'
+
+    const applyFormat = (btn) => {
+        const ta = taRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const sel = value.slice(start, end);
+        let next;
+
+        if (btn.insert) {
+            next = value.slice(0, start) + btn.insert + value.slice(end);
+            ta.focus();
+            setTimeout(() => {
+                const p = start + btn.insert.length;
+                ta.setSelectionRange(p, p);
+            }, 0);
+        } else if (btn.wrap) {
+            const [before, after] = btn.wrap;
+            next = value.slice(0, start) + before + (sel || 'text') + after + value.slice(end);
+            ta.focus();
+            setTimeout(() => {
+                ta.setSelectionRange(start + before.length, start + before.length + (sel || 'text').length);
+            }, 0);
+        } else if (btn.prefix) {
+            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+            next = value.slice(0, lineStart) + btn.prefix + value.slice(lineStart);
+            ta.focus();
+            setTimeout(() => {
+                const p = start + btn.prefix.length;
+                ta.setSelectionRange(p, p);
+            }, 0);
+        }
+
+        onChange({ target: { value: next } });
+    };
+
+    const preview = useMemo(() => renderMarkdown(value), [value]);
+
+    return (
+        <div className="md-editor">
+            <div className="md-toolbar">
+                <div className="md-toolbar-btns">
+                    {TOOLBAR.map(btn => (
+                        <button
+                            key={btn.label}
+                            type="button"
+                            className="md-toolbar-btn"
+                            title={btn.title}
+                            onMouseDown={e => { e.preventDefault(); applyFormat(btn); }}
+                        >
+                            {btn.icon}
+                        </button>
+                    ))}
+                </div>
+                <div className="md-toolbar-modes">
+                    {['write', 'split', 'preview'].map(m => (
+                        <button
+                            key={m}
+                            type="button"
+                            className={`md-mode-btn${mode === m ? ' active' : ''}`}
+                            onClick={() => setMode(m)}
+                        >
+                            {m === 'write' ? '✏️' : m === 'split' ? '⬛⬜' : '👁'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className={`md-panes md-panes--${mode}`}>
+                {mode !== 'preview' && (
+                    <textarea
+                        ref={taRef}
+                        className="md-pane-write"
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        rows={rows}
+                        spellCheck
+                    />
+                )}
+                {mode !== 'write' && (
+                    <div
+                        className="md-pane-preview"
+                        dangerouslySetInnerHTML={{ __html: preview || '<span class="md-empty">Nothing to preview…</span>' }}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
 /* ===== Generic Registry Page helpers ===== */
 
 function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
@@ -1379,7 +1543,15 @@ function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
         <form className="add-form" onSubmit={submit}>
             <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-skill" required /></div>
             <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
-            <div className="form-group full"><label>Content / Instructions</label><textarea value={form.content} onChange={set('content')} placeholder="You are a helpful…" rows={5} /></div>
+            <div className="form-group full">
+                <label>Content / Instructions <span className="md-label-hint">(Markdown supported)</span></label>
+                <MarkdownEditor
+                    value={form.content}
+                    onChange={set('content')}
+                    placeholder="You are a helpful…"
+                    rows={10}
+                />
+            </div>
             <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
                 <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
@@ -1392,20 +1564,27 @@ function WorkflowForm({ initialData, onSave, onCancel, saveLabel }) {
     const [form, setForm] = useState({
         name: initialData?.name || '',
         description: initialData?.description || '',
-        steps: initialData?.steps ? initialData.steps.join('\n') : '',
+        content: initialData?.content || '',
     });
     const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
     const submit = (e) => {
         e.preventDefault();
         if (!form.name.trim()) return;
-        const steps = form.steps.split('\n').map(s => s.trim()).filter(Boolean);
-        onSave({ name: form.name.trim(), description: form.description.trim() || null, steps });
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
     };
     return (
         <form className="add-form" onSubmit={submit}>
             <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-workflow" required /></div>
             <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
-            <div className="form-group full"><label>Steps (one per line)</label><textarea value={form.steps} onChange={set('steps')} placeholder="Step 1\nStep 2\nStep 3" rows={5} /></div>
+            <div className="form-group full">
+                <label>Steps <span className="md-label-hint">(Markdown supported)</span></label>
+                <MarkdownEditor
+                    value={form.content}
+                    onChange={set('content')}
+                    placeholder="## Step 1\nDo the first thing...\n\n## Step 2\nDo the second thing..."
+                    rows={10}
+                />
+            </div>
             <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
                 <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
@@ -1474,11 +1653,16 @@ function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
         <div className="server-card registry-card">
             <div className="name">{item.name}</div>
             <div className="command">{item.description || '—'}</div>
-            {item.content && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.content.slice(0, 80)}{item.content.length > 80 ? '…' : ''}</div>}
+            {item.content && (
+                <div
+                    className="md-card-preview"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content.slice(0, 300) + (item.content.length > 300 ? '…' : '')) }}
+                />
+            )}
             <div className="server-actions">
                 {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
-                        📤 Push to…
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
                     </button>
                 )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
@@ -1486,7 +1670,7 @@ function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
             </div>
             {showPush && targets && (
                 <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
                         {targets.map(t => (
                             <label
@@ -1508,7 +1692,7 @@ function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
                         <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
-                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
                         </button>
                     </div>
                 </div>
@@ -1546,8 +1730,8 @@ function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
             {item.steps?.length > 0 && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.steps.length} step{item.steps.length !== 1 ? 's' : ''}</div>}
             <div className="server-actions">
                 {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
-                        📤 Push to…
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
                     </button>
                 )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
@@ -1555,7 +1739,7 @@ function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
             </div>
             {showPush && targets && (
                 <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
                         {targets.map(t => (
                             <label
@@ -1577,7 +1761,7 @@ function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
                         <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
-                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
                         </button>
                     </div>
                 </div>
@@ -1618,8 +1802,8 @@ function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
             {item.api_key && <div className="command" style={{ opacity: 0.5, fontSize: '0.75rem' }}>API key: ••••••••</div>}
             <div className="server-actions">
                 {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
-                        📤 Push to…
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
                     </button>
                 )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
@@ -1627,7 +1811,7 @@ function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
             </div>
             {showPush && targets && (
                 <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
                         {targets.map(t => (
                             <label
@@ -1658,7 +1842,7 @@ function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
                             disabled={selectedTargets.size === 0 || pushing}
                             onClick={doPush}
                         >
-                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
                         </button>
                     </div>
                 </div>

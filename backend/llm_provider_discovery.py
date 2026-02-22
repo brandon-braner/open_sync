@@ -188,6 +188,27 @@ LLM_PROVIDER_TARGETS: list[dict[str, str]] = [
         "scope": "project",
         "color": "#4285F4",
     },
+    {
+        "id": "windsurf_project",
+        "display_name": "Windsurf (project)",
+        "config_path": ".windsurf/mcp_settings.json",
+        "scope": "project",
+        "color": "#06B6D4",
+    },
+    {
+        "id": "plandex_project",
+        "display_name": "Plandex (project)",
+        "config_path": ".plandex/",
+        "scope": "project",
+        "color": "#EC4899",
+    },
+    {
+        "id": "amp_project",
+        "display_name": "Amp (project)",
+        "config_path": ".amp/settings.json",
+        "scope": "project",
+        "color": "#FF5733",
+    },
 ]
 
 
@@ -985,8 +1006,29 @@ def write_provider_to_target(
     if target_id == "windsurf":
         return _write_provider_to_windsurf(provider)
 
+    if target_id == "windsurf_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the windsurf_project target",
+            }
+        return _write_provider_to_windsurf(
+            provider,
+            config_path=Path(project_path) / ".windsurf" / "mcp_settings.json",
+        )
+
     if target_id == "plandex":
         return _write_provider_to_plandex(provider)
+
+    if target_id == "plandex_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the plandex_project target",
+            }
+        return _write_provider_to_plandex(
+            provider, home_path=Path(project_path) / ".plandex"
+        )
 
     if target_id == "gemini_cli":
         return _write_provider_to_gemini_cli(provider)
@@ -1003,6 +1045,16 @@ def write_provider_to_target(
 
     if target_id == "amp":
         return _write_provider_to_amp(provider)
+
+    if target_id == "amp_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the amp_project target",
+            }
+        return _write_provider_to_amp(
+            provider, config_path=Path(project_path) / ".amp" / "settings.json"
+        )
 
     if target_id == "cursor":
         return {

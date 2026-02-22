@@ -171,6 +171,20 @@ SKILL_TARGETS: list[dict[str, str]] = [
         "color": "#1ABC9C",
     },
     {
+        "id": "plandex_project",
+        "display_name": "Plandex (project)",
+        "config_path": "<project>/.plandex/",
+        "scope": "project",
+        "color": "#F39C12",
+    },
+    {
+        "id": "amp_project",
+        "display_name": "Amp (project)",
+        "config_path": "<project>/.amp/settings.json",
+        "scope": "project",
+        "color": "#E74C3C",
+    },
+    {
         "id": "gemini_cli_project",
         "display_name": "Gemini CLI (project)",
         "config_path": "<project>/.gemini/settings.json",
@@ -918,6 +932,24 @@ def write_skill_to_target(
         )
     if target_id == "plandex":
         return _write_skill_to_plandex(skill)
+    if target_id == "plandex_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for plandex_project target",
+            }
+        return _write_skill_to_plandex(skill, home_path=Path(project_path) / ".plandex")
+    if target_id == "amp":
+        return _write_skill_to_amp(skill)
+    if target_id == "amp_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for amp_project target",
+            }
+        return _write_skill_to_amp(
+            skill, config_path=Path(project_path) / ".amp" / "settings.json"
+        )
     if target_id == "gemini_cli":
         return _write_skill_to_gemini_cli(skill)
     if target_id == "gemini_cli_project":
@@ -929,8 +961,7 @@ def write_skill_to_target(
         return _write_skill_to_gemini_cli(
             skill, config_path=Path(project_path) / ".gemini" / "settings.json"
         )
-    if target_id == "amp":
-        return _write_skill_to_amp(skill)
+    # (amp global handled above)
     if target_id == "cursor_global":
         return _write_skill_to_cursor(skill, target_id="cursor_global")
     if target_id == "cursor_project":

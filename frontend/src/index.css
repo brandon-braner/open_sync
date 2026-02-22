@@ -1378,3 +1378,250 @@ header p {
   min-width: 180px;
   justify-content: center;
 }
+
+/* ---- Markdown Editor ---- */
+
+.md-label-hint {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 0.3rem;
+}
+
+.md-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-primary);
+  transition: border-color 0.15s;
+}
+
+.md-editor:focus-within {
+  border-color: var(--border-focus);
+}
+
+/* Toolbar */
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.5rem;
+  background: rgba(255, 255, 255, .04);
+  border-bottom: 1px solid var(--border);
+  gap: 0.5rem;
+}
+
+.md-toolbar-btns {
+  display: flex;
+  gap: 0.15rem;
+  flex-wrap: wrap;
+}
+
+.md-toolbar-btn {
+  padding: 0.22rem 0.5rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1.4;
+}
+
+.md-toolbar-btn:hover {
+  background: rgba(255, 255, 255, .08);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* Mode toggle */
+.md-toolbar-modes {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.md-mode-btn {
+  padding: 0.22rem 0.55rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.md-mode-btn:hover {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text-secondary);
+}
+
+.md-mode-btn.active {
+  background: rgba(88, 166, 255, .15);
+  border-color: rgba(88, 166, 255, .3);
+  color: var(--accent);
+}
+
+/* Panes */
+.md-panes {
+  display: flex;
+  min-height: 200px;
+}
+
+.md-panes--write .md-pane-write {
+  flex: 1;
+}
+
+.md-panes--preview .md-pane-preview {
+  flex: 1;
+}
+
+.md-panes--split .md-pane-write,
+.md-panes--split .md-pane-preview {
+  flex: 1;
+  min-width: 0;
+}
+
+.md-panes--split .md-pane-write {
+  border-right: 1px solid var(--border);
+}
+
+.md-pane-write {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+/* Preview panel */
+.md-pane-preview {
+  padding: 0.65rem 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--text-primary);
+  overflow-y: auto;
+}
+
+.md-pane-preview h1,
+.md-pane-preview h2,
+.md-pane-preview h3,
+.md-pane-preview h4,
+.md-pane-preview h5,
+.md-pane-preview h6 {
+  margin: 0.75rem 0 0.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.md-pane-preview h1 { font-size: 1.3rem; }
+.md-pane-preview h2 { font-size: 1.1rem; }
+.md-pane-preview h3 { font-size: 0.97rem; }
+
+.md-pane-preview p {
+  margin: 0.35rem 0;
+}
+
+.md-pane-preview ul,
+.md-pane-preview ol {
+  margin: 0.35rem 0 0.35rem 1.2rem;
+  padding: 0;
+}
+
+.md-pane-preview li {
+  margin: 0.15rem 0;
+}
+
+.md-pane-preview code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.8em;
+  padding: 0.1em 0.35em;
+  background: rgba(88, 166, 255, .1);
+  border-radius: 3px;
+  color: #79c0ff;
+}
+
+.md-pane-preview pre {
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.85rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.md-pane-preview pre code {
+  background: none;
+  padding: 0;
+  color: #cdd9e5;
+  font-size: 0.8rem;
+}
+
+.md-pane-preview blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0.4rem 0;
+  padding: 0.2rem 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.md-pane-preview hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.65rem 0;
+}
+
+.md-pane-preview strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.md-pane-preview em {
+  font-style: italic;
+}
+
+.md-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+/* Card preview (rendered markdown snippet on skill cards) */
+.md-card-preview {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  max-height: 3.5rem;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.md-card-preview p,
+.md-card-preview h1,
+.md-card-preview h2,
+.md-card-preview h3 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.md-card-preview strong { font-weight: 600; }
+.md-card-preview code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,.06);
+  border-radius: 2px;
+  padding: 0 3px;
+}

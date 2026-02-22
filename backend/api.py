@@ -671,7 +671,7 @@ def add_registry_workflow(req: dict):
     w = Workflow(
         name=req.get("name"),
         description=req.get("description"),
-        steps=req.get("steps", []),
+        content=req.get("content"),
         sources=[],
     )
     return workflow_registry.add_workflow(
@@ -909,7 +909,6 @@ class _ImportItem(pydantic.BaseModel):
     type: str  # "skill" | "workflow"
     description: Optional[str] = None
     content: str = ""
-    steps: list[str] = []
 
 
 class _CommitImportRequest(pydantic.BaseModel):

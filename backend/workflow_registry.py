@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 from database import get_connection
@@ -16,7 +15,7 @@ def _row_to_workflow(row) -> Workflow:
         id=row["id"],
         name=row["name"],
         description=row["description"],
-        steps=json.loads(row["steps"]) if row["steps"] else [],
+        content=row["content"],
         sources=[SOURCE_TAG],
     )
 
@@ -90,13 +89,13 @@ def add_workflow(
         if existing:
             workflow_id = existing["id"]
             conn.execute(
-                "UPDATE workflows SET description = ?, steps = ? WHERE id = ?",
-                (workflow.description, json.dumps(workflow.steps) if workflow.steps else "[]", workflow_id),
+                "UPDATE workflows SET description = ?, content = ? WHERE id = ?",
+                (workflow.description, workflow.content, workflow_id),
             )
         else:
             conn.execute(
                 """INSERT INTO workflows
-                   (id, name, scope, project, description, steps)
+                   (id, name, scope, project, description, content)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (
                     workflow_id,
@@ -104,7 +103,7 @@ def add_workflow(
                     actual_scope,
                     proj_val,
                     workflow.description,
-                    json.dumps(workflow.steps) if workflow.steps else "[]",
+                    workflow.content,
                 ),
             )
         conn.commit()
@@ -115,7 +114,9 @@ def add_workflow(
     return workflow
 
 
-def remove_workflow(name: str, scope: str = "global", project: str | None = None) -> bool:
+def remove_workflow(
+    name: str, scope: str = "global", project: str | None = None
+) -> bool:
     conn = get_connection()
     try:
         if scope == "project" and project:

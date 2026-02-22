@@ -49,9 +49,12 @@ class Workflow(BaseModel):
     id: Optional[str] = Field(None, description="Stable internal UUID")
     name: str = Field(..., description="Unique workflow name / key")
     description: Optional[str] = Field(None, description="Short description")
-    steps: list[str] = Field(default_factory=list, description="List of steps")
+    content: Optional[str] = Field(
+        None, description="The workflow instructions (markdown)"
+    )
     sources: list[str] = Field(
-        default_factory=list, description="Which targets this workflow was discovered in"
+        default_factory=list,
+        description="Which targets this workflow was discovered in",
     )
 
 
@@ -60,11 +63,14 @@ class LlmProvider(BaseModel):
 
     id: Optional[str] = Field(None, description="Stable internal UUID")
     name: str = Field(..., description="Unique provider name / key")
-    provider_type: Optional[str] = Field(None, description="Provider type (e.g. openai, anthropic)")
+    provider_type: Optional[str] = Field(
+        None, description="Provider type (e.g. openai, anthropic)"
+    )
     api_key: Optional[str] = Field(None, description="API Key")
     base_url: Optional[str] = Field(None, description="Base URL")
     sources: list[str] = Field(
-        default_factory=list, description="Which targets this provider was discovered in"
+        default_factory=list,
+        description="Which targets this provider was discovered in",
     )
 
 
