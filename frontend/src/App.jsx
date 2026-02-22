@@ -3551,6 +3551,26 @@ function useHashRoute() {
 
 const NAV_SECTIONS = [
     {
+        id: 'agents',
+        label: '🕵️ Agents',
+        defaultHash: '#/agents/sync',
+        links: [
+            { hash: '#/agents/sync', label: '🔄 Sync' },
+            { hash: '#/agents/global', label: '🌐 Global' },
+            { hash: '#/agents/project', label: '📁 Project' },
+        ],
+    },
+    {
+        id: 'llm',
+        label: '🤖 LLM Providers',
+        defaultHash: '#/llm/sync',
+        links: [
+            { hash: '#/llm/sync', label: '🔄 Sync' },
+            { hash: '#/llm/global', label: '🌐 Global' },
+            { hash: '#/llm/project', label: '📁 Project' },
+        ],
+    },
+    {
         id: 'servers',
         label: '🔌 MCP Servers',
         defaultHash: '#/servers/sync',
@@ -3579,26 +3599,6 @@ const NAV_SECTIONS = [
             { hash: '#/workflows/sync', label: '🔄 Sync' },
             { hash: '#/workflows/global', label: '🌐 Global' },
             { hash: '#/workflows/project', label: '📁 Project' },
-        ],
-    },
-    {
-        id: 'llm',
-        label: '🤖 LLM Providers',
-        defaultHash: '#/llm/sync',
-        links: [
-            { hash: '#/llm/sync', label: '🔄 Sync' },
-            { hash: '#/llm/global', label: '🌐 Global' },
-            { hash: '#/llm/project', label: '📁 Project' },
-        ],
-    },
-    {
-        id: 'agents',
-        label: '🕵️ Agents',
-        defaultHash: '#/agents/sync',
-        links: [
-            { hash: '#/agents/sync', label: '🔄 Sync' },
-            { hash: '#/agents/global', label: '🌐 Global' },
-            { hash: '#/agents/project', label: '📁 Project' },
         ],
     },
 ];
