@@ -1469,7 +1469,28 @@ function WorkflowCard({ item, onEdit, onDelete }) {
     );
 }
 
-function LlmProviderCard({ item, onEdit, onDelete }) {
+function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
     return (
         <div className="server-card registry-card">
             <div className="name">{item.name}</div>
@@ -1479,9 +1500,52 @@ function LlmProviderCard({ item, onEdit, onDelete }) {
             </div>
             {item.api_key && <div className="command" style={{ opacity: 0.5, fontSize: '0.75rem' }}>API key: ••••••••</div>}
             <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
+                        📤 Push to…
+                    </button>
+                )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
                 <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
             </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selectedTargets.has(t.id)}
+                                    onChange={() => toggleTarget(t.id)}
+                                    style={{ display: 'none' }}
+                                />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            disabled={selectedTargets.size === 0 || pushing}
+                            onClick={doPush}
+                        >
+                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1731,31 +1795,351 @@ const ProjectWorkflowsPage = makeProjectRegistryPage({
     updateItem: (_id, data) => api.addWorkflow(data),
 });
 
-const GlobalLlmProvidersPage = makeGlobalRegistryPage({
-    title: '🤖 Global LLM Providers',
-    subtitle: 'LLM provider configurations available globally across all projects',
-    emptyMsg: 'No LLM providers in the global registry yet.',
-    addLabel: 'Add Provider',
-    FormComponent: LlmProviderForm,
-    CardComponent: LlmProviderCard,
-    getItems: (scope, proj) => api.getLlmProviders(scope, proj),
-    addItem: (data) => api.addLlmProvider(data),
-    removeItem: (id, scope, proj) => api.removeLlmProvider(id, scope, proj),
-    updateItem: (_id, data) => api.addLlmProvider(data),
-});
+function GlobalLlmProvidersPage({ addToast }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [providerTargets, setProviderTargets] = useState([]);
 
-const ProjectLlmProvidersPage = makeProjectRegistryPage({
-    title: '📁 Project LLM Providers',
-    subtitle: 'LLM provider configurations scoped to a specific project',
-    emptyMsg: "No LLM providers in this project's registry yet.",
-    addLabel: 'Add Provider',
-    FormComponent: LlmProviderForm,
-    CardComponent: LlmProviderCard,
-    getItems: (scope, proj) => api.getLlmProviders(scope, proj),
-    addItem: (data) => api.addLlmProvider(data),
-    removeItem: (id, scope, proj) => api.removeLlmProvider(id, scope, proj),
-    updateItem: (_id, data) => api.addLlmProvider(data),
-});
+    // Import from Config state
+    const [showImport, setShowImport] = useState(false);
+    const [discovered, setDiscovered] = useState([]);
+    const [discoverLoading, setDiscoverLoading] = useState(false);
+    const [selectedImport, setSelectedImport] = useState(new Set());
+    const [importing, setImporting] = useState(false);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            const [provs, targets] = await Promise.all([
+                api.getLlmProviders('global'),
+                api.getLlmProviderTargets(),
+            ]);
+            setItems(provs);
+            setProviderTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [addToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async (data) => {
+        try {
+            await api.addLlmProvider({ ...data, scope: 'global' });
+            addToast(`"${data.name}" added`, 'success');
+            setShowAdd(false); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handleEdit = async (data) => {
+        try {
+            await api.addLlmProvider({ ...data, scope: 'global' });
+            addToast(`"${data.name}" updated`, 'success');
+            setEditing(null); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            await api.removeLlmProvider(id, 'global');
+            addToast('Removed', 'success'); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handlePush = async (providerId, targetIds) => {
+        try {
+            const res = await api.syncLlmProvider(providerId, targetIds);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(
+                `Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`,
+                fail ? 'error' : 'success'
+            );
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+
+    // Only show global-scoped targets on the global page
+    const globalTargets = providerTargets.filter(t => t.scope === 'global' || !t.scope);
+
+    const openImport = async () => {
+        setShowImport(true);
+        setSelectedImport(new Set());
+        setDiscoverLoading(true);
+        try {
+            const found = await api.discoverLlmProviders();
+            setDiscovered(found);
+        } catch (err) {
+            addToast(`Discovery failed: ${err.message}`, 'error');
+            setDiscovered([]);
+        } finally {
+            setDiscoverLoading(false);
+        }
+    };
+
+    const toggleImport = (name) => {
+        setSelectedImport(prev => {
+            const next = new Set(prev);
+            next.has(name) ? next.delete(name) : next.add(name);
+            return next;
+        });
+    };
+
+    const doImport = async () => {
+        const toImport = discovered.filter(p => selectedImport.has(p.name));
+        if (toImport.length === 0) return;
+        setImporting(true);
+        let ok = 0, fail = 0;
+        for (const p of toImport) {
+            try {
+                await api.addLlmProvider({ ...p, scope: 'global' });
+                ok++;
+            } catch { fail++; }
+        }
+        setImporting(false);
+        setShowImport(false);
+        addToast(`Imported ${ok} provider${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`, fail ? 'warn' : 'success');
+        await load();
+    };
+
+    if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
+
+    return (
+        <div className="registry-page">
+            <div className="registry-header"><h2>🤖 Global LLM Providers</h2><p className="registry-subtitle">LLM provider configurations available globally across all projects</p></div>
+            <div className="registry-toolbar">
+                <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                <button className="btn btn-ghost btn-sm" onClick={openImport} style={{ marginRight: '0.5rem' }}>
+                    📥 Import from Config
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
+                    {showAdd ? '✕ Cancel' : '＋ Add Provider'}
+                </button>
+            </div>
+
+            {/* Import from Config modal */}
+            {showImport && (
+                <div className="modal-overlay" onClick={() => setShowImport(false)}>
+                    <div className="results-panel import-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <div className="results-header">
+                            <span>📥 Import LLM Providers from Config</span>
+                            <button className="close-btn" onClick={() => setShowImport(false)}>✕</button>
+                        </div>
+                        <p style={{ margin: '0 0 0.75rem', opacity: 0.7, fontSize: '0.85rem' }}>
+                            Providers discovered from your global AI tool configs (OpenCode, etc.)
+                        </p>
+                        {discoverLoading ? (
+                            <div className="loading"><div className="spinner" /><div>Discovering…</div></div>
+                        ) : discovered.length === 0 ? (
+                            <div className="empty"><div className="emoji">🔍</div>No providers found in global configs.</div>
+                        ) : (
+                            <div className="import-list">
+                                {discovered.map(p => (
+                                    <label key={p.name} className="import-item" onClick={() => toggleImport(p.name)} style={{ cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedImport.has(p.name)}
+                                            onChange={() => toggleImport(p.name)}
+                                            onClick={e => e.stopPropagation()}
+                                        />
+                                        <div className="import-item-info">
+                                            <div className="import-item-name">{p.name}</div>
+                                            <div className="import-item-desc">
+                                                <span className="env-tag" style={{ marginRight: '0.4rem' }}>{p.provider_type}</span>
+                                                {p.base_url && <span style={{ opacity: 0.6, fontSize: '0.78rem' }}>{p.base_url}</span>}
+                                                {p.api_key && <span style={{ opacity: 0.5, fontSize: '0.75rem', marginLeft: '0.4rem' }}>🔑 API key set</span>}
+                                                {p.sources?.length > 0 && <span className="source-tag" style={{ marginLeft: '0.4rem' }}>📍 {p.sources[0]}</span>}
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(false)}>Cancel</button>
+                            <button
+                                className="btn btn-primary btn-sm"
+                                disabled={selectedImport.size === 0 || importing || discoverLoading}
+                                onClick={doImport}
+                            >
+                                {importing ? '⏳ Importing…' : `📥 Import ${selectedImport.size} Provider${selectedImport.size !== 1 ? 's' : ''}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><LlmProviderForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+            {editing && (
+                <div className="panel" style={{ marginBottom: '1rem' }}>
+                    <div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div>
+                    <LlmProviderForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" />
+                </div>
+            )}
+            {items.length === 0 && !showAdd ? (
+                <div className="panel"><div className="empty"><div className="emoji">📭</div>No LLM providers in the global registry yet.</div></div>
+            ) : (
+                <div className="server-list">
+                    {items.map(item => (
+                        <LlmProviderCard
+                            key={item.id || item.name}
+                            item={item}
+                            targets={globalTargets}
+                            onEdit={(it) => { setEditing(it); setShowAdd(false); }}
+                            onDelete={handleDelete}
+                            onPush={handlePush}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemoveProject }) {
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [showAddProject, setShowAddProject] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newPath, setNewPath] = useState('');
+    const [providerTargets, setProviderTargets] = useState([]);
+
+    const load = useCallback(async () => {
+        if (!selectedProject) { setItems([]); return; }
+        try {
+            setLoading(true);
+            const [provs, targets] = await Promise.all([
+                api.getLlmProviders('project', selectedProject),
+                api.getLlmProviderTargets(),
+            ]);
+            setItems(provs);
+            setProviderTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [selectedProject, addToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async (data) => {
+        try {
+            await api.addLlmProvider({ ...data, scope: 'project', project_name: selectedProject });
+            addToast(`"${data.name}" added`, 'success');
+            setShowAdd(false); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handleEdit = async (data) => {
+        try {
+            await api.addLlmProvider({ ...data, scope: 'project', project_name: selectedProject });
+            addToast(`"${data.name}" updated`, 'success');
+            setEditing(null); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handleDelete = async (id) => {
+        try {
+            await api.removeLlmProvider(id, 'project', selectedProject);
+            addToast('Removed', 'success'); await load();
+        } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+
+    const handlePush = async (providerId, targetIds) => {
+        try {
+            const res = await api.syncLlmProvider(providerId, targetIds, projectPath);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(
+                `Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`,
+                fail ? 'error' : 'success'
+            );
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+
+    // Only show project-scoped targets on the project page
+    const projectTargets = providerTargets.filter(t => t.scope === 'project');
+
+    const handleAddProject = (e) => {
+        e.preventDefault();
+        if (!newName.trim() || !newPath.trim()) return;
+        onAddProject(newName.trim(), newPath.trim());
+        setNewName(''); setNewPath(''); setShowAddProject(false);
+        setSelectedProject(newName.trim());
+    };
+
+    const projectPath = projects.find(p => p.name === selectedProject)?.path;
+
+    return (
+        <div className="registry-page">
+            <div className="registry-header"><h2>📁 Project LLM Providers</h2><p className="registry-subtitle">LLM provider configurations scoped to a specific project</p></div>
+
+            <div className="scope-bar" style={{ marginBottom: '1rem' }}>
+                <div className="project-selector" style={{ flex: 1 }}>
+                    <select value={selectedProject || ''} onChange={(e) => setSelectedProject(e.target.value || null)} className="project-select">
+                        <option value="">— Select a project —</option>
+                        {projects.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                    <button className="scope-tab" onClick={() => setShowAddProject(!showAddProject)} title="Add new project">{showAddProject ? '✕' : '＋'}</button>
+                    {selectedProject && (
+                        <button className="scope-tab project-remove-btn" onClick={() => { onRemoveProject(selectedProject); setSelectedProject(null); }} title="Remove project">🗑️</button>
+                    )}
+                </div>
+            </div>
+
+            {showAddProject && (
+                <form className="add-project-form" onSubmit={handleAddProject}>
+                    <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
+                    <DirectoryPicker value={newPath} onChange={setNewPath} />
+                    <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                </form>
+            )}
+
+            {selectedProject && projectPath && <div className="project-path-display" style={{ marginBottom: '1rem' }}>📂 {projectPath}</div>}
+
+            {!selectedProject ? (
+                <div className="panel"><div className="empty"><div className="emoji">👆</div>Select a project above.</div></div>
+            ) : loading ? (
+                <div className="loading"><div className="spinner" /><div>Loading…</div></div>
+            ) : (
+                <>
+                    <div className="registry-toolbar">
+                        <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
+                            {showAdd ? '✕ Cancel' : '＋ Add Provider'}
+                        </button>
+                    </div>
+                    {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><LlmProviderForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+                    {editing && (
+                        <div className="panel" style={{ marginBottom: '1rem' }}>
+                            <div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div>
+                            <LlmProviderForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" />
+                        </div>
+                    )}
+                    {items.length === 0 && !showAdd ? (
+                        <div className="panel"><div className="empty"><div className="emoji">📭</div>No LLM providers in this project's registry yet.</div></div>
+                    ) : (
+                        <div className="server-list">
+                            {items.map(item => (
+                                <LlmProviderCard
+                                    key={item.id || item.name}
+                                    item={item}
+                                    targets={projectTargets}
+                                    onEdit={(it) => { setEditing(it); setShowAdd(false); }}
+                                    onDelete={handleDelete}
+                                    onPush={handlePush}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
 
 /* ===== Hash Router ===== */
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+import pydantic
 import httpx
 
 import mcp_registry_client
@@ -14,6 +15,7 @@ import server_registry
 import skill_registry
 import workflow_registry
 import llm_provider_registry
+import llm_provider_discovery
 from config_manager import (
     discover_all_servers,
     read_target_servers,
@@ -612,9 +614,11 @@ def add_registry_skill(req: dict):
         name=req.get("name"),
         description=req.get("description"),
         content=req.get("content", ""),
-        sources=[]
+        sources=[],
     )
-    return skill_registry.add_skill(s, req.get("scope", "global"), req.get("project_name"))
+    return skill_registry.add_skill(
+        s, req.get("scope", "global"), req.get("project_name")
+    )
 
 
 @router.delete("/registry/skills/{skill_id}")
@@ -647,9 +651,11 @@ def add_registry_workflow(req: dict):
         name=req.get("name"),
         description=req.get("description"),
         steps=req.get("steps", []),
-        sources=[]
+        sources=[],
     )
-    return workflow_registry.add_workflow(w, req.get("scope", "global"), req.get("project_name"))
+    return workflow_registry.add_workflow(
+        w, req.get("scope", "global"), req.get("project_name")
+    )
 
 
 @router.delete("/registry/workflows/{workflow_id}")
@@ -668,6 +674,42 @@ def remove_registry_workflow(
 # ---- LLM Providers ---------------------------------------------------------
 
 
+@router.get("/registry/llm-providers/discover", response_model=list[LlmProvider])
+def discover_llm_providers_from_configs():
+    """Discover LLM providers from global AI tool config files (OpenCode, etc.)."""
+    return llm_provider_discovery.discover_all_llm_providers()
+
+
+@router.get("/registry/llm-providers/targets")
+def list_llm_provider_targets():
+    """Return all writable LLM provider targets (e.g. OpenCode)."""
+    return llm_provider_discovery.list_llm_provider_targets()
+
+
+class _SyncProviderRequest(pydantic.BaseModel):
+    provider_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/llm-providers/sync")
+def sync_llm_provider_to_targets(req: _SyncProviderRequest):
+    """Push a registered LLM provider into one or more agent config files."""
+    provider = llm_provider_registry.get_llm_provider_by_id(req.provider_id)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="LLM Provider not found")
+    results = [
+        {
+            "target_id": tid,
+            **llm_provider_discovery.write_provider_to_target(
+                provider, tid, req.project_path
+            ),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
 @router.get("/registry/llm-providers", response_model=list[LlmProvider])
 def list_registry_llm_providers(
     scope: str = Query("global"),
@@ -683,9 +725,11 @@ def add_registry_llm_provider(req: dict):
         provider_type=req.get("provider_type"),
         api_key=req.get("api_key"),
         base_url=req.get("base_url"),
-        sources=[]
+        sources=[],
     )
-    return llm_provider_registry.add_llm_provider(p, req.get("scope", "global"), req.get("project_name"))
+    return llm_provider_registry.add_llm_provider(
+        p, req.get("scope", "global"), req.get("project_name")
+    )
 
 
 @router.delete("/registry/llm-providers/{provider_id}")

@@ -124,6 +124,16 @@ export const api = {
     },
 
     // LLM Providers
+    discoverLlmProviders: () => request('/api/registry/llm-providers/discover'),
+
+    getLlmProviderTargets: () => request('/api/registry/llm-providers/targets'),
+
+    syncLlmProvider: (providerId, targetIds, projectPath = null) =>
+        request('/api/registry/llm-providers/sync', {
+            method: 'POST',
+            body: JSON.stringify({ provider_id: providerId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
     getLlmProviders: (scope = 'global', projectName = null) => {
         const params = new URLSearchParams({ scope });
         if (projectName) params.set('project_name', projectName);

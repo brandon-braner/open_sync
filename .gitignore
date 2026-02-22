@@ -27,6 +27,7 @@ frontend/dist/
 # AI Agent
 .roo
 .antigravity
+opencode.json
 
 # Logs & output
 logs/
@@ -34,3 +35,4 @@ output/
 
 # OS
 .DS_Store
+
