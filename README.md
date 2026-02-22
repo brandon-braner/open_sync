@@ -8,24 +8,25 @@
 
 Managing the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is painful when you use multiple AI tools. Each editor, CLI, and desktop app keeps its own config file in its own format. Add a server in Cursor, then copy-paste it into Claude Desktop, VS Code, Gemini CLI… and repeat every time something changes.
 
-OpenSync fixes this. Register your MCP servers once, pick the targets you care about, and sync. You can also manage **skills** (custom instructions / system prompts), **workflows** (slash-command sequences), and **LLM providers** across tools — all from the same dashboard.
+OpenSync fixes this. Register your MCP servers once, pick the targets you care about, and sync. You can also manage **agents** (autonomous assistants), **skills** (custom instructions / system prompts), **workflows** (slash-command sequences), and **LLM providers** across tools — all from the same dashboard.
 
 ---
 
 ## ✨ Features
 
 - **Centralized MCP registry** — Add, edit, and remove MCP server definitions in a single local database (SQLite).
+- **Centralized agents registry** — Manage autonomous AI agent definitions and configurations.
 - **Centralized skills registry** — Manage custom instructions, system prompts, and rule files across all agents.
 - **Centralized workflows registry** — Manage reusable slash-command workflows and push them to any supported tool.
 - **LLM provider management** — Discover, register, and sync LLM API keys and base URLs across all your AI tools.
-- **One-click sync** — Push servers, skills, workflows, or providers to any combination of supported targets at once.
+- **One-click sync** — Push servers, agents, skills, workflows, or providers to any combination of supported targets at once.
 - **Auto-discovery** — Detects servers, skills, workflows, and LLM configs already present in your installed tools and imports them.
 - **Project scanner** — Point OpenSync at any project directory and it will automatically discover all agent artifacts (Antigravity, Cursor, Claude Code, Copilot CLI, Gemini CLI, OpenCode, VS Code, Windsurf, and more).
 - **Global & project scopes** — Manage a system-wide set of configurations *and* per-project overrides.
 - **Config backups** — Timestamped backups are created before every write, so nothing is ever lost.
 - **Format translation** — Automatically converts between the different JSON/YAML/Markdown schemas each tool expects.
 - **Project management** — Create named projects, browse directories, and import global configs into any project.
-- **Two-tier Web UI** — A React-based dashboard with a top-level section selector and contextual sub-navigation for MCP Servers, Skills, Workflows, and LLM Providers.
+- **Two-tier Web UI** — A React-based dashboard with a top-level section selector and contextual sub-navigation for MCP Servers, Agents, Skills, Workflows, and LLM Providers.
 - **Unified integration model** — All tool definitions live in a single `integrations/` package powered by Pydantic, making it trivial to add new tools.
 
 ---
@@ -50,6 +51,21 @@ OpenSync currently supports **10 AI tools** across editors, desktop apps, and CL
 
 > [!NOTE]
 > Warp does not support MCP servers natively.
+
+---
+
+### Agents Targets
+
+Agents are autonomous AI assistants with varying degrees of tool and context access. OpenSync can sync agent configuration files across:
+
+| Target | Scope | Native support |
+|--------|-------|:-:|
+| Claude Code | Global & Project | ✅ |
+| Copilot CLI | Global & Project | ✅ |
+| Cursor | Global & Project | ✅ |
+| Gemini CLI | Global & Project | ✅ |
+| OpenCode | Global & Project | ✅ |
+| VS Code | Project | ✅ |
 
 ---
 
@@ -103,18 +119,18 @@ OpenSync can discover your existing LLM API keys and model configs from installe
 
 A quick reference showing every integration and its supported feature types:
 
-| Integration | Category | MCP | Skills | Workflows | LLM |
-|-------------|----------|:---:|:------:|:---------:|:---:|
-| Antigravity | Editor | ✅ | ✅ | ✅ | — |
-| Claude Code | CLI | ✅ | ✅ | — | ✅ |
-| Claude Desktop | Desktop | ✅ | — | — | — |
-| Copilot CLI | CLI | ✅ | ✅ | — | — |
-| Cursor | Editor | ✅ | ✅ | ✅ | ✅* |
-| Gemini CLI | CLI | ✅ | ✅ | ✅ | ✅ |
-| OpenCode | CLI | ✅ | ✅ | ✅ | ✅ |
-| VS Code | Editor | ✅ | — | — | — |
-| Warp | Desktop | — | ✅ | ✅ | — |
-| Windsurf | Editor | ✅ | ✅ | ✅ | ✅ |
+| Integration | Category | MCP | Agents | Skills | Workflows | LLM |
+|-------------|----------|:---:|:------:|:------:|:---------:|:---:|
+| Antigravity | Editor | ✅ | — | ✅ | ✅ | — |
+| Claude Code | CLI | ✅ | ✅ | ✅ | — | ✅ |
+| Claude Desktop | Desktop | ✅ | — | — | — | — |
+| Copilot CLI | CLI | ✅ | ✅ | ✅ | — | — |
+| Cursor | Editor | ✅ | ✅ | ✅ | ✅ | ✅* |
+| Gemini CLI | CLI | ✅ | ✅ | ✅ | ✅ | ✅ |
+| OpenCode | CLI | ✅ | ✅ | ✅ | ✅ | ✅ |
+| VS Code | Editor | ✅ | ✅ | — | — | — |
+| Warp | Desktop | — | — | ✅ | ✅ | — |
+| Windsurf | Editor | ✅ | — | ✅ | ✅ | ✅ |
 
 *\* Read-only discovery*
 
@@ -277,6 +293,18 @@ All endpoints are under `/api`. Full interactive documentation is auto-generated
 | `GET` | `/api/targets` | List sync targets and their status |
 | `POST` | `/api/sync` | Sync servers to selected targets |
 | `DELETE` | `/api/servers/{name}` | Remove a server from one or more targets |
+
+### Agents
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/registry/agents` | List agents in the registry |
+| `POST` | `/api/registry/agents` | Add a new agent |
+| `DELETE` | `/api/registry/agents/{id}` | Remove an agent |
+| `POST` | `/api/registry/agents/import` | Copy an agent from global to a project |
+| `GET` | `/api/registry/agents/discover` | Discover agents from installed AI tools |
+| `GET` | `/api/registry/agents/targets` | List agent push targets |
+| `POST` | `/api/registry/agents/sync` | Push an agent to one or more targets |
 
 ### Skills
 
