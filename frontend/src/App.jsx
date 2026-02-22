@@ -1876,14 +1876,33 @@ const SOURCE_COLORS = {
     'Aider (.aider.conf.yml)': '#059669',
 };
 
-function ImportFromProjectModal({ onClose, onImported, addToast }) {
+function ImportFromProjectModal({ onClose, onImported, addToast, projects = [], defaultTypeFilter = 'all' }) {
     const [projectPath, setProjectPath] = useState('');
     const [scanning, setScanning] = useState(false);
     const [artifacts, setArtifacts] = useState(null); // null = not scanned yet
     const [selected, setSelected] = useState(new Set());
-    const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'skill' | 'workflow'
+    const [typeFilter, setTypeFilter] = useState(defaultTypeFilter); // 'all' | 'skill' | 'workflow'
     const [importing, setImporting] = useState(false);
 
+    const handleSelectProject = async (projectName) => {
+        if (!projectName) { setProjectPath(''); return; }
+        const proj = projects.find(p => p.name === projectName);
+        if (!proj) return;
+        setProjectPath(proj.path);
+        // Auto-scan when a configured project is picked
+        setScanning(true);
+        setArtifacts(null);
+        setSelected(new Set());
+        try {
+            const found = await api.scanProjectImport(proj.path);
+            setArtifacts(found);
+            if (found.length === 0) addToast('No recognisable artifacts found in that project.', 'warn');
+        } catch (err) {
+            addToast(`Scan failed: ${err.message}`, 'error');
+        } finally {
+            setScanning(false);
+        }
+    };
     const handleScan = async () => {
         if (!projectPath.trim()) return;
         setScanning(true);
@@ -1971,10 +1990,28 @@ function ImportFromProjectModal({ onClose, onImported, addToast }) {
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.4rem', opacity: 0.6, lineHeight: 1 }}>✕</button>
                 </div>
 
+                {/* Configured projects dropdown */}
+                {projects.length > 0 && (
+                    <div style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.35rem' }}>Pick a configured project</label>
+                        <select
+                            className="project-select"
+                            defaultValue=""
+                            onChange={(e) => handleSelectProject(e.target.value)}
+                            style={{ width: '100%' }}
+                        >
+                            <option value="">— Select a project —</option>
+                            {projects.map(p => (
+                                <option key={p.name} value={p.name}>{p.name} ({p.path})</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 {/* Directory picker + scan */}
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
                     <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.35rem' }}>Project Path</label>
+                        <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.35rem' }}>Or enter a custom path</label>
                         <DirectoryPicker value={projectPath} onChange={setProjectPath} />
                     </div>
                     <button
@@ -2005,7 +2042,7 @@ function ImportFromProjectModal({ onClose, onImported, addToast }) {
                         <>
                             {/* Type filter + select-all */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                                <span style={{ opacity: 0.6, fontSize: '0.8rem' }}>{artifacts.length} artifact{artifacts.length !== 1 ? 's' : ''} found</span>
+                                <span style={{ opacity: 0.6, fontSize: '0.8rem' }}>{visible.length} artifact{visible.length !== 1 ? 's' : ''} found{typeFilter !== 'all' ? ` (${artifacts.length} total)` : ''}</span>
                                 <div style={{ display: 'flex', gap: '0.35rem', marginLeft: 'auto' }}>
                                     {['all', 'skill', 'workflow'].map(t => (
                                         <button
@@ -2100,9 +2137,61 @@ function ImportFromProjectModal({ onClose, onImported, addToast }) {
     );
 }
 
+/* ===== Import from Global modal (Skills / Workflows / LLM Providers) ===== */
+
+function ImportItemFromGlobalModal({ globalItems, projectItems, onImport, onClose, itemLabel = 'item' }) {
+    const projectIds = new Set(projectItems.map(i => i.name));
+    const importable = globalItems.filter(i => !projectIds.has(i.name));
+    const [selected, setSelected] = useState(new Set());
+    const [importing, setImporting] = useState(false);
+
+    const toggle = (id) => setSelected(prev => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+    });
+
+    const handleImport = async () => {
+        setImporting(true);
+        try { await onImport([...selected]); }
+        finally { setImporting(false); }
+    };
+
+    return (
+        <div className="results-overlay" onClick={onClose}>
+            <div className="results-panel import-modal" onClick={e => e.stopPropagation()}>
+                <h2>📥 Import from Global Registry</h2>
+                {importable.length === 0 ? (
+                    <div className="empty"><div className="emoji">✅</div>All global {itemLabel}s are already in this project.</div>
+                ) : (
+                    <div className="import-list">
+                        {importable.map(item => (
+                            <label key={item.id} className="import-item" onClick={() => toggle(item.id)}>
+                                <input type="checkbox" checked={selected.has(item.id)} onChange={() => { }} />
+                                <div className="import-item-info">
+                                    <div className="name">{item.name}</div>
+                                    <div className="command">{item.description || item.provider_type || '—'}</div>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                )}
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                    <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                    {importable.length > 0 && (
+                        <button className="btn btn-primary" disabled={selected.size === 0 || importing} onClick={handleImport}>
+                            {importing ? '⏳ Importing…' : `📥 Import ${selected.size} ${itemLabel}${selected.size !== 1 ? 's' : ''}`}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ===== Concrete registry pages ===== */
 
-function GlobalSkillsPage({ addToast }) {
+function GlobalSkillsPage({ addToast, projects }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
@@ -2115,7 +2204,7 @@ function GlobalSkillsPage({ addToast }) {
             setLoading(true);
             const [skills, targets] = await Promise.all([api.getSkills('global'), api.getSkillTargets()]);
             setItems(skills);
-            setSkillTargets(targets);
+            setSkillTargets(targets.filter(t => t.scope === 'global' || !t.scope));
         } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
         finally { setLoading(false); }
     }, [addToast]);
@@ -2146,7 +2235,7 @@ function GlobalSkillsPage({ addToast }) {
     if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
     return (
         <div className="registry-page">
-            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} />}
+            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} projects={projects} defaultTypeFilter="skill" />}
             <div className="registry-header"><h2>🧠 Global Skills</h2><p className="registry-subtitle">AI skills and system prompts available globally across all projects</p></div>
             <div className="registry-toolbar">
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}>⬇️ Import from Project</button>
@@ -2172,6 +2261,8 @@ function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject, 
     const [newName, setNewName] = useState('');
     const [newPath, setNewPath] = useState('');
     const [skillTargets, setSkillTargets] = useState([]);
+    const [showImportGlobal, setShowImportGlobal] = useState(false);
+    const [globalItems, setGlobalItems] = useState([]);
 
     const load = useCallback(async () => {
         if (!selectedProject) { setItems([]); return; }
@@ -2187,9 +2278,14 @@ function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject, 
                     }
                 } catch (_) { /* scan errors are non-fatal */ }
             }
-            const [skills, targets] = await Promise.all([api.getSkills('project', selectedProject), api.getSkillTargets()]);
+            const [skills, globalSkills, targets] = await Promise.all([
+                api.getSkills('project', selectedProject),
+                api.getSkills('global'),
+                api.getSkillTargets(),
+            ]);
             setItems(skills);
-            setSkillTargets(targets);
+            setGlobalItems(globalSkills);
+            setSkillTargets(targets.filter(t => t.scope === 'project'));
         } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
         finally { setLoading(false); }
     }, [selectedProject, projects, addToast]);
@@ -2256,7 +2352,10 @@ function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject, 
                 <>
                     <div className="registry-toolbar">
                         <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Skill'}</button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setShowImportGlobal(true); setShowAdd(false); setEditing(null); }}>📥 Import from Global</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Skill'}</button>
+                        </div>
                     </div>
                     {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><SkillForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
                     {editing && (<div className="panel" style={{ marginBottom: '1rem' }}><div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div><SkillForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" /></div>)}
@@ -2269,11 +2368,25 @@ function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject, 
                     )}
                 </>
             )}
+            {showImportGlobal && (
+                <ImportItemFromGlobalModal
+                    globalItems={globalItems}
+                    projectItems={items}
+                    itemLabel="skill"
+                    onClose={() => setShowImportGlobal(false)}
+                    onImport={async (ids) => {
+                        for (const id of ids) await api.importSkillFromGlobal(id, selectedProject);
+                        addToast(`Imported ${ids.length} skill${ids.length !== 1 ? 's' : ''} from global`, 'success');
+                        setShowImportGlobal(false);
+                        await load();
+                    }}
+                />
+            )}
         </div>
     );
 }
 
-function GlobalWorkflowsPage({ addToast }) {
+function GlobalWorkflowsPage({ addToast, projects }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
@@ -2286,7 +2399,7 @@ function GlobalWorkflowsPage({ addToast }) {
             setLoading(true);
             const [workflows, targets] = await Promise.all([api.getWorkflows('global'), api.getWorkflowTargets()]);
             setItems(workflows);
-            setWorkflowTargets(targets);
+            setWorkflowTargets(targets.filter(t => t.scope === 'global' || !t.scope));
         } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
         finally { setLoading(false); }
     }, [addToast]);
@@ -2317,7 +2430,7 @@ function GlobalWorkflowsPage({ addToast }) {
     if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
     return (
         <div className="registry-page">
-            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} />}
+            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} projects={projects} defaultTypeFilter="workflow" />}
             <div className="registry-header"><h2>🔁 Global Workflows</h2><p className="registry-subtitle">Reusable multi-step workflows available globally</p></div>
             <div className="registry-toolbar">
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}>⬇️ Import from Project</button>
@@ -2343,6 +2456,8 @@ function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProjec
     const [newName, setNewName] = useState('');
     const [newPath, setNewPath] = useState('');
     const [workflowTargets, setWorkflowTargets] = useState([]);
+    const [showImportGlobal, setShowImportGlobal] = useState(false);
+    const [globalItems, setGlobalItems] = useState([]);
 
     const load = useCallback(async () => {
         if (!selectedProject) { setItems([]); return; }
@@ -2358,9 +2473,14 @@ function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProjec
                     }
                 } catch (_) { /* scan errors are non-fatal */ }
             }
-            const [workflows, targets] = await Promise.all([api.getWorkflows('project', selectedProject), api.getWorkflowTargets()]);
+            const [workflows, globalWorkflows, targets] = await Promise.all([
+                api.getWorkflows('project', selectedProject),
+                api.getWorkflows('global'),
+                api.getWorkflowTargets(),
+            ]);
             setItems(workflows);
-            setWorkflowTargets(targets);
+            setGlobalItems(globalWorkflows);
+            setWorkflowTargets(targets.filter(t => t.scope === 'project'));
         } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
         finally { setLoading(false); }
     }, [selectedProject, projects, addToast]);
@@ -2427,7 +2547,10 @@ function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProjec
                 <>
                     <div className="registry-toolbar">
                         <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Workflow'}</button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setShowImportGlobal(true); setShowAdd(false); setEditing(null); }}>📥 Import from Global</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Workflow'}</button>
+                        </div>
                     </div>
                     {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><WorkflowForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
                     {editing && (<div className="panel" style={{ marginBottom: '1rem' }}><div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div><WorkflowForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" /></div>)}
@@ -2439,6 +2562,20 @@ function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProjec
                         </div>
                     )}
                 </>
+            )}
+            {showImportGlobal && (
+                <ImportItemFromGlobalModal
+                    globalItems={globalItems}
+                    projectItems={items}
+                    itemLabel="workflow"
+                    onClose={() => setShowImportGlobal(false)}
+                    onImport={async (ids) => {
+                        for (const id of ids) await api.importWorkflowFromGlobal(id, selectedProject);
+                        addToast(`Imported ${ids.length} workflow${ids.length !== 1 ? 's' : ''} from global`, 'success');
+                        setShowImportGlobal(false);
+                        await load();
+                    }}
+                />
             )}
         </div>
     );
@@ -2655,16 +2792,20 @@ function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemovePro
     const [newName, setNewName] = useState('');
     const [newPath, setNewPath] = useState('');
     const [providerTargets, setProviderTargets] = useState([]);
+    const [showImportGlobal, setShowImportGlobal] = useState(false);
+    const [globalItems, setGlobalItems] = useState([]);
 
     const load = useCallback(async () => {
         if (!selectedProject) { setItems([]); return; }
         try {
             setLoading(true);
-            const [provs, targets] = await Promise.all([
+            const [provs, globalProvs, targets] = await Promise.all([
                 api.getLlmProviders('project', selectedProject),
+                api.getLlmProviders('global'),
                 api.getLlmProviderTargets(),
             ]);
             setItems(provs);
+            setGlobalItems(globalProvs);
             setProviderTargets(targets);
         } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
         finally { setLoading(false); }
@@ -2707,10 +2848,8 @@ function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemovePro
         } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
     };
 
-    // Show all targets on the project page — global-scope agents (Continue, Aider, etc.)
-    // write to user-level configs regardless of project, and project_path is passed
-    // to handlePush so project-specific targets (opencode_project) still resolve correctly.
-    const projectTargets = providerTargets;
+    // Only show project-scoped targets on the project page.
+    const projectTargets = providerTargets.filter(t => t.scope === 'project');
 
     const handleAddProject = (e) => {
         e.preventDefault();
@@ -2757,9 +2896,12 @@ function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemovePro
                 <>
                     <div className="registry-toolbar">
                         <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
-                            {showAdd ? '✕ Cancel' : '＋ Add Provider'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => { setShowImportGlobal(true); setShowAdd(false); setEditing(null); }}>📥 Import from Global</button>
+                            <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
+                                {showAdd ? '✕ Cancel' : '＋ Add Provider'}
+                            </button>
+                        </div>
                     </div>
                     {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><LlmProviderForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
                     {editing && (
@@ -2785,6 +2927,20 @@ function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemovePro
                         </div>
                     )}
                 </>
+            )}
+            {showImportGlobal && (
+                <ImportItemFromGlobalModal
+                    globalItems={globalItems}
+                    projectItems={items}
+                    itemLabel="provider"
+                    onClose={() => setShowImportGlobal(false)}
+                    onImport={async (ids) => {
+                        for (const id of ids) await api.importLlmProviderFromGlobal(id, selectedProject);
+                        addToast(`Imported ${ids.length} provider${ids.length !== 1 ? 's' : ''} from global`, 'success');
+                        setShowImportGlobal(false);
+                        await load();
+                    }}
+                />
             )}
         </div>
     );
@@ -2987,13 +3143,13 @@ export default function App() {
             page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />;
             break;
         case '#/registry/skills/global':
-            page = <GlobalSkillsPage addToast={addToast} />;
+            page = <GlobalSkillsPage addToast={addToast} projects={projects} />;
             break;
         case '#/registry/skills/project':
             page = <ProjectSkillsPage {...sharedProjectProps} />;
             break;
         case '#/registry/workflows/global':
-            page = <GlobalWorkflowsPage addToast={addToast} />;
+            page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />;
             break;
         case '#/registry/workflows/project':
             page = <ProjectWorkflowsPage {...sharedProjectProps} />;

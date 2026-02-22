@@ -637,6 +637,24 @@ def remove_registry_skill(
     return {"message": "Skill removed"}
 
 
+class _ImportSkillRequest(pydantic.BaseModel):
+    skill_id: str
+    project_name: str
+
+
+@router.post("/registry/skills/import", response_model=Skill)
+def import_skill_from_global(req: _ImportSkillRequest):
+    """Copy a skill from the global registry into a project's registry."""
+    global_skill = skill_registry.get_skill_by_id(req.skill_id)
+    if global_skill is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Skill '{req.skill_id}' not found in global registry",
+        )
+    global_skill.id = None  # fresh UUID for the project copy
+    return skill_registry.add_skill(global_skill, "project", req.project_name)
+
+
 # ---- Workflows -------------------------------------------------------------
 
 
@@ -672,6 +690,24 @@ def remove_registry_workflow(
         raise HTTPException(status_code=404, detail="Workflow not found")
     workflow_registry.remove_workflow(existing.name, scope, project_name)
     return {"message": "Workflow removed"}
+
+
+class _ImportWorkflowRequest(pydantic.BaseModel):
+    workflow_id: str
+    project_name: str
+
+
+@router.post("/registry/workflows/import", response_model=Workflow)
+def import_workflow_from_global(req: _ImportWorkflowRequest):
+    """Copy a workflow from the global registry into a project's registry."""
+    global_wf = workflow_registry.get_workflow_by_id(req.workflow_id)
+    if global_wf is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Workflow '{req.workflow_id}' not found in global registry",
+        )
+    global_wf.id = None
+    return workflow_registry.add_workflow(global_wf, "project", req.project_name)
 
 
 # ---- LLM Providers ---------------------------------------------------------
@@ -746,6 +782,26 @@ def remove_registry_llm_provider(
         raise HTTPException(status_code=404, detail="LLM Provider not found")
     llm_provider_registry.remove_llm_provider(existing.name, scope, project_name)
     return {"message": "LLM Provider removed"}
+
+
+class _ImportProviderRequest(pydantic.BaseModel):
+    provider_id: str
+    project_name: str
+
+
+@router.post("/registry/llm-providers/import", response_model=LlmProvider)
+def import_provider_from_global(req: _ImportProviderRequest):
+    """Copy an LLM provider from the global registry into a project's registry."""
+    global_prov = llm_provider_registry.get_llm_provider_by_id(req.provider_id)
+    if global_prov is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"LLM Provider '{req.provider_id}' not found in global registry",
+        )
+    global_prov.id = None
+    return llm_provider_registry.add_llm_provider(
+        global_prov, "project", req.project_name
+    )
 
 
 # ---- Skills sync -----------------------------------------------------------

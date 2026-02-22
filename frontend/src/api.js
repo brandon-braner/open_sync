@@ -102,6 +102,12 @@ export const api = {
         });
     },
 
+    importSkillFromGlobal: (skillId, projectName) =>
+        request('/api/registry/skills/import', {
+            method: 'POST',
+            body: JSON.stringify({ skill_id: skillId, project_name: projectName }),
+        }),
+
     // Workflows
     getWorkflows: (scope = 'global', projectName = null) => {
         const params = new URLSearchParams({ scope });
@@ -122,6 +128,12 @@ export const api = {
             method: 'DELETE',
         });
     },
+
+    importWorkflowFromGlobal: (workflowId, projectName) =>
+        request('/api/registry/workflows/import', {
+            method: 'POST',
+            body: JSON.stringify({ workflow_id: workflowId, project_name: projectName }),
+        }),
 
     // Skills sync
     getSkillTargets: () => request('/api/registry/skills/targets'),
@@ -185,6 +197,12 @@ export const api = {
             method: 'DELETE',
         });
     },
+
+    importLlmProviderFromGlobal: (providerId, projectName) =>
+        request('/api/registry/llm-providers/import', {
+            method: 'POST',
+            body: JSON.stringify({ provider_id: providerId, project_name: projectName }),
+        }),
 
     // Projects
     getProjects: () => request('/api/projects'),

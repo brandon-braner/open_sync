@@ -28,6 +28,7 @@ frontend/dist/
 .roo
 .antigravity
 opencode.json
+.agent
 
 # Logs & output
 logs/

@@ -135,11 +135,67 @@ SKILL_TARGETS: list[dict[str, str]] = [
         "scope": "project",
         "color": "#95A5A6",
     },
+    {
+        "id": "continue_project",
+        "display_name": "Continue (project)",
+        "config_path": "<project>/.continue/config.yaml",
+        "scope": "project",
+        "color": "#4ECDC4",
+    },
+    {
+        "id": "aider_project",
+        "display_name": "Aider (project)",
+        "config_path": "<project>/.aider.conf.yml",
+        "scope": "project",
+        "color": "#45B7D1",
+    },
+    {
+        "id": "claude_code_project",
+        "display_name": "Claude Code (project)",
+        "config_path": "<project>/.claude/settings.json",
+        "scope": "project",
+        "color": "#E67E22",
+    },
+    {
+        "id": "roo_cline_project",
+        "display_name": "Roo Code / Cline (project)",
+        "config_path": "<project>/.vscode/settings.json",
+        "scope": "project",
+        "color": "#9B59B6",
+    },
+    {
+        "id": "windsurf_project",
+        "display_name": "Windsurf (project)",
+        "config_path": "<project>/.windsurfrules",
+        "scope": "project",
+        "color": "#1ABC9C",
+    },
+    {
+        "id": "gemini_cli_project",
+        "display_name": "Gemini CLI (project)",
+        "config_path": "<project>/.gemini/settings.json",
+        "scope": "project",
+        "color": "#3498DB",
+    },
+    {
+        "id": "antigravity_global",
+        "display_name": "Antigravity (global)",
+        "config_path": "~/.agent/skills/",
+        "scope": "global",
+        "color": "#6C3483",
+    },
+    {
+        "id": "antigravity_project",
+        "display_name": "Antigravity (project)",
+        "config_path": "<project>/.agent/skills/",
+        "scope": "project",
+        "color": "#6C3483",
+    },
 ]
 
 
 def list_skill_targets() -> list[dict[str, str]]:
-    return SKILL_TARGETS
+    return sorted(SKILL_TARGETS, key=lambda t: t["display_name"].lower())
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +797,39 @@ def _write_skill_to_cursor(
         return {"success": False, "message": f"Failed to write Cursor rule: {exc}"}
 
 
+def _write_skill_to_antigravity(
+    skill: Skill,
+    skills_dir: Path | None = None,
+    project_path: str | None = None,
+    target_id: str = "antigravity_global",
+) -> dict[str, Any]:
+    """Write skill as a .md file into the Antigravity .agent/skills/ directory."""
+    if target_id == "antigravity_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for antigravity_project target",
+            }
+        base = Path(project_path).expanduser() / ".agent" / "skills"
+    else:
+        base = (skills_dir or Path("~/.agent/skills")).expanduser()
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        slug = skill.name.lower().replace(" ", "-").replace("/", "-")
+        skill_file = base / f"{slug}.md"
+        content = skill.content or f"# {skill.name}\n\n{skill.description or ''}"
+        _write_text(skill_file, content)
+        return {
+            "success": True,
+            "message": f"Antigravity skill written to {skill_file}",
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"Failed to write Antigravity skill: {exc}",
+        }
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -774,18 +863,72 @@ def write_skill_to_target(
         )
     if target_id == "continue":
         return _write_skill_to_continue(skill)
+    if target_id == "continue_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for continue_project target",
+            }
+        return _write_skill_to_continue(
+            skill, config_path=Path(project_path) / ".continue" / "config.yaml"
+        )
     if target_id == "aider":
         return _write_skill_to_aider(skill)
+    if target_id == "aider_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for aider_project target",
+            }
+        return _write_skill_to_aider(
+            skill, config_path=Path(project_path) / ".aider.conf.yml"
+        )
     if target_id == "claude_code":
         return _write_skill_to_claude_code(skill)
+    if target_id == "claude_code_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for claude_code_project target",
+            }
+        return _write_skill_to_claude_code(
+            skill, config_path=Path(project_path) / ".claude" / "settings.json"
+        )
     if target_id == "roo_cline":
         return _write_skill_to_roo_cline(skill)
+    if target_id == "roo_cline_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for roo_cline_project target",
+            }
+        return _write_skill_to_roo_cline(
+            skill, config_path=Path(project_path) / ".vscode" / "settings.json"
+        )
     if target_id == "windsurf":
         return _write_skill_to_windsurf(skill)
+    if target_id == "windsurf_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for windsurf_project target",
+            }
+        return _write_skill_to_windsurf(
+            skill, rules_path=Path(project_path) / ".windsurfrules"
+        )
     if target_id == "plandex":
         return _write_skill_to_plandex(skill)
     if target_id == "gemini_cli":
         return _write_skill_to_gemini_cli(skill)
+    if target_id == "gemini_cli_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for gemini_cli_project target",
+            }
+        return _write_skill_to_gemini_cli(
+            skill, config_path=Path(project_path) / ".gemini" / "settings.json"
+        )
     if target_id == "amp":
         return _write_skill_to_amp(skill)
     if target_id == "cursor_global":
@@ -793,5 +936,11 @@ def write_skill_to_target(
     if target_id == "cursor_project":
         return _write_skill_to_cursor(
             skill, project_path=project_path, target_id="cursor_project"
+        )
+    if target_id == "antigravity_global":
+        return _write_skill_to_antigravity(skill, target_id="antigravity_global")
+    if target_id == "antigravity_project":
+        return _write_skill_to_antigravity(
+            skill, project_path=project_path, target_id="antigravity_project"
         )
     return {"success": False, "message": f"Unknown skill target: '{target_id}'"}

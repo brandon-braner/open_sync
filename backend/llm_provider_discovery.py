@@ -83,13 +83,6 @@ LLM_PROVIDER_TARGETS: list[dict[str, str]] = [
         "color": "#FF6B6B",
     },
     {
-        "id": "opencode_project",
-        "display_name": "OpenCode (project)",
-        "config_path": "opencode.json",  # relative to project root
-        "scope": "project",
-        "color": "#FF9F7F",
-    },
-    {
         "id": "continue",
         "display_name": "Continue",
         "config_path": "~/.continue/config.yaml",
@@ -151,6 +144,49 @@ LLM_PROVIDER_TARGETS: list[dict[str, str]] = [
         "config_path": "~/.cursor/",
         "scope": "global",
         "color": "#6B7280",
+    },
+    # --- Project-scoped targets ---
+    {
+        "id": "opencode_project",
+        "display_name": "OpenCode (project)",
+        "config_path": "opencode.json",  # relative to project root
+        "scope": "project",
+        "color": "#FF9F7F",
+    },
+    {
+        "id": "continue_project",
+        "display_name": "Continue (project)",
+        "config_path": ".continue/config.yaml",
+        "scope": "project",
+        "color": "#3B82F6",
+    },
+    {
+        "id": "aider_project",
+        "display_name": "Aider (project)",
+        "config_path": ".aider.conf.yml",
+        "scope": "project",
+        "color": "#10B981",
+    },
+    {
+        "id": "claude_code_project",
+        "display_name": "Claude Code (project)",
+        "config_path": ".claude/settings.json",
+        "scope": "project",
+        "color": "#F59E0B",
+    },
+    {
+        "id": "roo_cline_project",
+        "display_name": "Roo Code / Cline (project)",
+        "config_path": ".vscode/settings.json",
+        "scope": "project",
+        "color": "#8B5CF6",
+    },
+    {
+        "id": "gemini_cli_project",
+        "display_name": "Gemini CLI (project)",
+        "config_path": ".gemini/settings.json",
+        "scope": "project",
+        "color": "#4285F4",
     },
 ]
 
@@ -897,14 +933,54 @@ def write_provider_to_target(
     if target_id == "continue":
         return _write_provider_to_continue(provider)
 
+    if target_id == "continue_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the continue_project target",
+            }
+        return _write_provider_to_continue(
+            provider, config_path=Path(project_path) / ".continue" / "config.yaml"
+        )
+
     if target_id == "aider":
         return _write_provider_to_aider(provider)
+
+    if target_id == "aider_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the aider_project target",
+            }
+        return _write_provider_to_aider(
+            provider, config_path=Path(project_path) / ".aider.conf.yml"
+        )
 
     if target_id == "claude_code":
         return _write_provider_to_claude_code(provider)
 
+    if target_id == "claude_code_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the claude_code_project target",
+            }
+        return _write_provider_to_claude_code(
+            provider, config_path=Path(project_path) / ".claude" / "settings.json"
+        )
+
     if target_id == "roo_cline":
         return _write_provider_to_roo_cline(provider)
+
+    if target_id == "roo_cline_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the roo_cline_project target",
+            }
+        return _write_provider_to_roo_cline(
+            provider, config_path=Path(project_path) / ".vscode" / "settings.json"
+        )
 
     if target_id == "windsurf":
         return _write_provider_to_windsurf(provider)
@@ -914,6 +990,16 @@ def write_provider_to_target(
 
     if target_id == "gemini_cli":
         return _write_provider_to_gemini_cli(provider)
+
+    if target_id == "gemini_cli_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for the gemini_cli_project target",
+            }
+        return _write_provider_to_gemini_cli(
+            provider, config_path=Path(project_path) / ".gemini" / "settings.json"
+        )
 
     if target_id == "amp":
         return _write_provider_to_amp(provider)

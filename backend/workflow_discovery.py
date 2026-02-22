@@ -151,11 +151,75 @@ WORKFLOW_TARGETS: list[dict[str, str]] = [
         "color": "#95A5A6",
         "native": "false",
     },
+    {
+        "id": "continue_project",
+        "display_name": "Continue (project)",
+        "config_path": "<project>/.continue/config.yaml",
+        "scope": "project",
+        "color": "#4ECDC4",
+        "native": "true",
+    },
+    {
+        "id": "aider_project",
+        "display_name": "Aider (project)",
+        "config_path": "<project>/.aider.conf.yml",
+        "scope": "project",
+        "color": "#45B7D1",
+        "native": "false",
+    },
+    {
+        "id": "claude_code_project",
+        "display_name": "Claude Code (project)",
+        "config_path": "<project>/.claude/settings.json",
+        "scope": "project",
+        "color": "#E67E22",
+        "native": "false",
+    },
+    {
+        "id": "roo_cline_project",
+        "display_name": "Roo Code / Cline (project)",
+        "config_path": "<project>/.vscode/settings.json",
+        "scope": "project",
+        "color": "#9B59B6",
+        "native": "false",
+    },
+    {
+        "id": "windsurf_project",
+        "display_name": "Windsurf (project)",
+        "config_path": "<project>/.windsurfrules",
+        "scope": "project",
+        "color": "#1ABC9C",
+        "native": "false",
+    },
+    {
+        "id": "gemini_cli_project",
+        "display_name": "Gemini CLI (project)",
+        "config_path": "<project>/.gemini/settings.json",
+        "scope": "project",
+        "color": "#3498DB",
+        "native": "false",
+    },
+    {
+        "id": "antigravity_global",
+        "display_name": "Antigravity (global)",
+        "config_path": "~/.agent/workflows/",
+        "scope": "global",
+        "color": "#6C3483",
+        "native": "false",
+    },
+    {
+        "id": "antigravity_project",
+        "display_name": "Antigravity (project)",
+        "config_path": "<project>/.agent/workflows/",
+        "scope": "project",
+        "color": "#6C3483",
+        "native": "false",
+    },
 ]
 
 
 def list_workflow_targets() -> list[dict[str, str]]:
-    return WORKFLOW_TARGETS
+    return sorted(WORKFLOW_TARGETS, key=lambda t: t["display_name"].lower())
 
 
 # ---------------------------------------------------------------------------
@@ -765,6 +829,50 @@ def _write_workflow_to_cursor(
 
 
 # ---------------------------------------------------------------------------
+# Antigravity  (.agent/workflows/*.md)
+# ---------------------------------------------------------------------------
+
+
+def _write_workflow_to_antigravity(
+    workflow: Workflow,
+    workflows_dir: Path | None = None,
+    project_path: str | None = None,
+    target_id: str = "antigravity_global",
+) -> dict[str, Any]:
+    """Write workflow as a .md file into the Antigravity .agent/workflows/ directory."""
+    if target_id == "antigravity_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for antigravity_project target",
+            }
+        base = Path(project_path).expanduser() / ".agent" / "workflows"
+    else:
+        base = (workflows_dir or Path("~/.agent/workflows")).expanduser()
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        slug = workflow.name.lower().replace(" ", "-").replace("/", "-")
+        wf_file = base / f"{slug}.md"
+        steps_text = "\n".join(
+            f"{i + 1}. {s}" for i, s in enumerate(workflow.steps or [])
+        )
+        content = (
+            f"---\nname: {workflow.name}\ndescription: {workflow.description or ''}\n---\n\n"
+            f"# {workflow.name}\n\n{workflow.description or ''}\n\n{steps_text}"
+        ).strip()
+        _write_text(wf_file, content)
+        return {
+            "success": True,
+            "message": f"Antigravity workflow written to {wf_file}",
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"Failed to write Antigravity workflow: {exc}",
+        }
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -797,6 +905,60 @@ def write_workflow_to_target(
         )
     if target_id == "continue":
         return _write_workflow_to_continue(workflow)
+    if target_id == "continue_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for continue_project target",
+            }
+        return _write_workflow_to_continue(
+            workflow, config_path=Path(project_path) / ".continue" / "config.yaml"
+        )
+    if target_id == "aider_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for aider_project target",
+            }
+        return _write_workflow_to_aider(
+            workflow, config_path=Path(project_path) / ".aider.conf.yml"
+        )
+    if target_id == "claude_code_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for claude_code_project target",
+            }
+        return _write_workflow_to_claude_code(
+            workflow, config_path=Path(project_path) / ".claude" / "settings.json"
+        )
+    if target_id == "roo_cline_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for roo_cline_project target",
+            }
+        return _write_workflow_to_roo_cline(
+            workflow, config_path=Path(project_path) / ".vscode" / "settings.json"
+        )
+    if target_id == "windsurf_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for windsurf_project target",
+            }
+        return _write_workflow_to_windsurf(
+            workflow, rules_path=Path(project_path) / ".windsurfrules"
+        )
+    if target_id == "gemini_cli_project":
+        if not project_path:
+            return {
+                "success": False,
+                "message": "project_path is required for gemini_cli_project target",
+            }
+        return _write_workflow_to_gemini_cli(
+            workflow, config_path=Path(project_path) / ".gemini" / "settings.json"
+        )
     if target_id == "aider":
         return _write_workflow_to_aider(workflow)
     if target_id == "claude_code":
@@ -816,5 +978,11 @@ def write_workflow_to_target(
     if target_id == "cursor_project":
         return _write_workflow_to_cursor(
             workflow, project_path=project_path, target_id="cursor_project"
+        )
+    if target_id == "antigravity_global":
+        return _write_workflow_to_antigravity(workflow, target_id="antigravity_global")
+    if target_id == "antigravity_project":
+        return _write_workflow_to_antigravity(
+            workflow, project_path=project_path, target_id="antigravity_project"
         )
     return {"success": False, "message": f"Unknown workflow target: '{target_id}'"}
