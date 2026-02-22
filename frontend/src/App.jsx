@@ -3439,7 +3439,7 @@ export default function App() {
 
             <header>
                 <h1>⚡ OpenSync</h1>
-                <p>Sync MCP servers across all your AI agents & IDEs</p>
+                <p>Sync AI Artifacts across all your AI agents & IDEs</p>
             </header>
 
             <NavBar currentHash={route} />

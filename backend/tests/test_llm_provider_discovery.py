@@ -200,7 +200,7 @@ class LlmProviderDiscoveryTests(BackendTestCase):
     def test_list_llm_provider_targets_returns_opencode(self):
         targets = llm_provider_discovery.list_llm_provider_targets()
         ids = [t["id"] for t in targets]
-        self.assertIn("opencode", ids)
+        self.assertIn("opencode_global", ids)
 
 
 # ===========================================================================
@@ -321,7 +321,7 @@ class ContinueDiscoveryTests(BackendTestCase):
     def test_list_targets_includes_continue(self):
         targets = llm_provider_discovery.list_llm_provider_targets()
         ids = [t["id"] for t in targets]
-        self.assertIn("continue", ids)
+        self.assertIn("continue_global", ids)
 
 
 # ===========================================================================
@@ -395,7 +395,7 @@ class AiderDiscoveryTests(BackendTestCase):
     def test_list_targets_includes_aider(self):
         targets = llm_provider_discovery.list_llm_provider_targets()
         ids = [t["id"] for t in targets]
-        self.assertIn("aider", ids)
+        self.assertIn("aider_global", ids)
 
 
 # ===========================================================================
@@ -472,7 +472,7 @@ class ClaudeCodeDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_claude_code(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("claude_code", ids)
+        self.assertIn("claude_code_global", ids)
 
 
 # ===========================================================================
@@ -552,7 +552,7 @@ class RooClineDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_roo_cline(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("roo_cline", ids)
+        self.assertIn("roo_cline_global", ids)
 
 
 # ===========================================================================
@@ -620,7 +620,7 @@ class WindsurfDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_windsurf(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("windsurf", ids)
+        self.assertIn("windsurf_global", ids)
 
 
 # ===========================================================================
@@ -686,7 +686,7 @@ class PlandexDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_plandex(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("plandex", ids)
+        self.assertIn("plandex_global", ids)
 
 
 # ===========================================================================
@@ -737,7 +737,7 @@ class GeminiCliDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_gemini_cli(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("gemini_cli", ids)
+        self.assertIn("gemini_cli_global", ids)
 
 
 # ===========================================================================
@@ -800,7 +800,7 @@ class AmpDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_amp(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("amp", ids)
+        self.assertIn("amp_global", ids)
 
 
 # ===========================================================================
@@ -843,7 +843,7 @@ class CursorDiscoveryTests(BackendTestCase):
 
     def test_list_targets_includes_cursor(self):
         ids = [t["id"] for t in llm_provider_discovery.list_llm_provider_targets()]
-        self.assertIn("cursor", ids)
+        self.assertIn("cursor_global", ids)
 
 
 # ===========================================================================
@@ -889,16 +889,23 @@ class DispatcherTests(BackendTestCase):
         targets = llm_provider_discovery.list_llm_provider_targets()
         ids = {t["id"] for t in targets}
         expected = {
-            "opencode",
+            "opencode_global",
             "opencode_project",
-            "continue",
-            "aider",
-            "claude_code",
-            "roo_cline",
-            "windsurf",
-            "plandex",
-            "gemini_cli",
-            "amp",
-            "cursor",
+            "continue_global",
+            "continue_project",
+            "aider_global",
+            "aider_project",
+            "claude_code_global",
+            "claude_code_project",
+            "roo_cline_global",
+            "roo_cline_project",
+            "windsurf_global",
+            "windsurf_project",
+            "plandex_global",
+            "plandex_project",
+            "gemini_cli_global",
+            "gemini_cli_project",
+            "amp_global",
+            "cursor_global",
         }
         self.assertEqual(expected, ids)

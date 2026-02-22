@@ -81,6 +81,7 @@ class Integration(BaseModel):
                 "scope": scope,
                 "color": self.color,
                 "native": cfg.native,
+                "category": self.category,
             }
             for scope, cfg in self.skill.items()
         ]
@@ -94,6 +95,7 @@ class Integration(BaseModel):
                 "scope": scope,
                 "color": self.color,
                 "native": cfg.native,
+                "category": self.category,
             }
             for scope, cfg in self.workflow.items()
         ]
@@ -107,6 +109,7 @@ class Integration(BaseModel):
                 "config_path": cfg.config_path,
                 "scope": scope,
                 "color": self.color,
+                "category": self.category,
             }
             for scope, cfg in self.llm.items()
         ]

@@ -806,6 +806,23 @@ def write_provider_to_target(
 
     Returns a dict with ``success`` (bool) and ``message`` (str).
     """
+    # Accept both bare IDs (legacy) and new _global scoped IDs produced by llm_dicts().
+    # _project IDs already have explicit handling below.
+    _GLOBAL_ALIASES = {
+        "opencode_global": "opencode",
+        "continue_global": "continue",
+        "aider_global": "aider",
+        "claude_code_global": "claude_code",
+        "roo_cline_global": "roo_cline",
+        "windsurf_global": "windsurf",
+        "plandex_global": "plandex",
+        "gemini_cli_global": "gemini_cli",
+        "amp_global": "amp",
+        "cursor_global": "cursor",
+    }
+    if target_id in _GLOBAL_ALIASES:
+        target_id = _GLOBAL_ALIASES[target_id]
+
     if target_id == "opencode":
         return _write_provider_to_opencode(provider)
 
