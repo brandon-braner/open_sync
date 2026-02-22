@@ -216,6 +216,48 @@ export const api = {
             body: JSON.stringify({ provider_id: providerId, project_name: projectName }),
         }),
 
+    // Agents
+    getAgents: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/agents?${params}`);
+    },
+
+    addAgent: (data) =>
+        request('/api/registry/agents', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeAgent: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/agents/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    importAgentFromGlobal: (agentId, projectName) =>
+        request('/api/registry/agents/import', {
+            method: 'POST',
+            body: JSON.stringify({ agent_id: agentId, project_name: projectName }),
+        }),
+
+    discoverAgents: (projectPath = null) => {
+        const params = new URLSearchParams();
+        if (projectPath) params.set('project_path', projectPath);
+        const qs = params.toString();
+        return request(`/api/registry/agents/discover${qs ? '?' + qs : ''}`);
+    },
+
+    getAgentTargets: () => request('/api/registry/agents/targets'),
+
+    syncAgent: (agentId, targetIds, projectPath = null) =>
+        request('/api/registry/agents/sync', {
+            method: 'POST',
+            body: JSON.stringify({ agent_id: agentId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
     // Projects
     getProjects: () => request('/api/projects'),
 
