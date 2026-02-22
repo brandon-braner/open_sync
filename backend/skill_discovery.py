@@ -50,166 +50,13 @@ _SKILL_END = "<!-- /OPENSYNC_SKILL:{name} -->"
 # ---------------------------------------------------------------------------
 # Skill targets metadata
 # ---------------------------------------------------------------------------
-SKILL_TARGETS: list[dict[str, str]] = [
-    {
-        "id": "opencode_global",
-        "display_name": "OpenCode (global)",
-        "config_path": "~/.config/opencode/opencode.json",
-        "scope": "global",
-        "color": "#FF6B6B",
-    },
-    {
-        "id": "continue",
-        "display_name": "Continue",
-        "config_path": "~/.continue/config.yaml",
-        "scope": "global",
-        "color": "#4ECDC4",
-    },
-    {
-        "id": "aider",
-        "display_name": "Aider",
-        "config_path": "~/.aider.conf.yml",
-        "scope": "global",
-        "color": "#45B7D1",
-    },
-    {
-        "id": "claude_code",
-        "display_name": "Claude Code",
-        "config_path": "~/.claude.json",
-        "scope": "global",
-        "color": "#E67E22",
-    },
-    {
-        "id": "roo_cline",
-        "display_name": "Roo Code / Cline",
-        "config_path": "~/Library/Application Support/Code/User/settings.json",
-        "scope": "global",
-        "color": "#9B59B6",
-    },
-    {
-        "id": "windsurf",
-        "display_name": "Windsurf",
-        "config_path": "~/.windsurfrules",
-        "scope": "global",
-        "color": "#1ABC9C",
-    },
-    {
-        "id": "plandex",
-        "display_name": "Plandex",
-        "config_path": "~/.plandex-home/",
-        "scope": "global",
-        "color": "#F39C12",
-    },
-    {
-        "id": "gemini_cli",
-        "display_name": "Gemini CLI",
-        "config_path": "~/.gemini/settings.json",
-        "scope": "global",
-        "color": "#3498DB",
-    },
-    {
-        "id": "amp",
-        "display_name": "Amp (Sourcegraph)",
-        "config_path": "~/.amp/settings.json",
-        "scope": "global",
-        "color": "#E74C3C",
-    },
-    {
-        "id": "cursor_global",
-        "display_name": "Cursor (global rules)",
-        "config_path": "~/.cursor/rules/",
-        "scope": "global",
-        "color": "#95A5A6",
-    },
-    {
-        "id": "opencode_project",
-        "display_name": "OpenCode (project)",
-        "config_path": "<project>/opencode.json",
-        "scope": "project",
-        "color": "#FF6B6B",
-    },
-    {
-        "id": "cursor_project",
-        "display_name": "Cursor (project rules)",
-        "config_path": "<project>/.cursor/rules/",
-        "scope": "project",
-        "color": "#95A5A6",
-    },
-    {
-        "id": "continue_project",
-        "display_name": "Continue (project)",
-        "config_path": "<project>/.continue/config.yaml",
-        "scope": "project",
-        "color": "#4ECDC4",
-    },
-    {
-        "id": "aider_project",
-        "display_name": "Aider (project)",
-        "config_path": "<project>/.aider.conf.yml",
-        "scope": "project",
-        "color": "#45B7D1",
-    },
-    {
-        "id": "claude_code_project",
-        "display_name": "Claude Code (project)",
-        "config_path": "<project>/.claude/settings.json",
-        "scope": "project",
-        "color": "#E67E22",
-    },
-    {
-        "id": "roo_cline_project",
-        "display_name": "Roo Code / Cline (project)",
-        "config_path": "<project>/.vscode/settings.json",
-        "scope": "project",
-        "color": "#9B59B6",
-    },
-    {
-        "id": "windsurf_project",
-        "display_name": "Windsurf (project)",
-        "config_path": "<project>/.windsurfrules",
-        "scope": "project",
-        "color": "#1ABC9C",
-    },
-    {
-        "id": "plandex_project",
-        "display_name": "Plandex (project)",
-        "config_path": "<project>/.plandex/",
-        "scope": "project",
-        "color": "#F39C12",
-    },
-    {
-        "id": "amp_project",
-        "display_name": "Amp (project)",
-        "config_path": "<project>/.amp/settings.json",
-        "scope": "project",
-        "color": "#E74C3C",
-    },
-    {
-        "id": "gemini_cli_project",
-        "display_name": "Gemini CLI (project)",
-        "config_path": "<project>/.gemini/settings.json",
-        "scope": "project",
-        "color": "#3498DB",
-    },
-    {
-        "id": "antigravity_global",
-        "display_name": "Antigravity (global)",
-        "config_path": "~/.agent/skills/",
-        "scope": "global",
-        "color": "#6C3483",
-    },
-    {
-        "id": "antigravity_project",
-        "display_name": "Antigravity (project)",
-        "config_path": "<project>/.agent/skills/",
-        "scope": "project",
-        "color": "#6C3483",
-    },
-]
+from unified_targets import get_skill_targets as _get_skill_targets
+
+SKILL_TARGETS: list[dict] = _get_skill_targets()
 
 
-def list_skill_targets() -> list[dict[str, str]]:
-    return sorted(SKILL_TARGETS, key=lambda t: t["display_name"].lower())
+def list_skill_targets() -> list[dict]:
+    return _get_skill_targets()
 
 
 # ---------------------------------------------------------------------------
@@ -304,7 +151,7 @@ def _extract_skill_blocks(text: str) -> list[Skill]:
 
 
 # ---------------------------------------------------------------------------
-# OpenCode (global)
+# OpenCode
 # ---------------------------------------------------------------------------
 
 
@@ -817,16 +664,16 @@ def _write_skill_to_antigravity(
     project_path: str | None = None,
     target_id: str = "antigravity_global",
 ) -> dict[str, Any]:
-    """Write skill as a .md file into the Antigravity .agent/skills/ directory."""
+    """Write skill as a .md file into the Antigravity .agents/skills/ directory."""
     if target_id == "antigravity_project":
         if not project_path:
             return {
                 "success": False,
                 "message": "project_path is required for antigravity_project target",
             }
-        base = Path(project_path).expanduser() / ".agent" / "skills"
+        base = Path(project_path).expanduser() / ".agents" / "skills"
     else:
-        base = (skills_dir or Path("~/.agent/skills")).expanduser()
+        base = (skills_dir or Path("~/.agents/skills")).expanduser()
     try:
         base.mkdir(parents=True, exist_ok=True)
         slug = skill.name.lower().replace(" ", "-").replace("/", "-")
@@ -844,13 +691,53 @@ def _write_skill_to_antigravity(
         }
 
 
+def _discover_antigravity_skills(skills_dir: Path | None = None) -> list[Skill]:
+    """Discover skills from Antigravity .agents/skills/ directory."""
+    base = (skills_dir or Path("~/.agents/skills")).expanduser()
+    if not base.is_dir():
+        return []
+    skills: list[Skill] = []
+    for md_file in sorted(base.glob("*.md")):
+        try:
+            text = md_file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        name = md_file.stem.replace("-", " ")
+        description = None
+        content = text
+        if text.startswith("---"):
+            parts = text.split("---", 2)
+            if len(parts) >= 3:
+                fm = parts[1]
+                body = parts[2].strip()
+                for line in fm.splitlines():
+                    if line.startswith("name:"):
+                        name = line[5:].strip()
+                    elif line.startswith("description:"):
+                        description = line[12:].strip() or None
+                content = body
+        s = Skill(
+            name=name,
+            description=description,
+            content=content,
+            sources=["antigravity_global"],
+        )
+        skills.append(s)
+    return skills
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 
-def discover_all_skills() -> list[Skill]:
-    """Discover skills from every supported agent config."""
+def discover_all_skills(project_path: str | None = None) -> list[Skill]:
+    """Discover skills from every supported agent config.
+
+    If *project_path* is provided, project-scoped configs are also scanned
+    and the returned items will include sources like 'continue_project',
+    'claude_code_project', etc. so that source pills display correctly.
+    """
     skills: list[Skill] = []
     skills.extend(_discover_opencode_global())
     skills.extend(_discover_continue())
@@ -862,6 +749,54 @@ def discover_all_skills() -> list[Skill]:
     skills.extend(_discover_gemini_cli())
     skills.extend(_discover_amp())
     skills.extend(_discover_cursor())
+    skills.extend(_discover_antigravity_skills())
+
+    if project_path:
+        pp = Path(project_path).expanduser()
+        _tag = lambda ss, src: [setattr(s, "sources", [src]) or s for s in ss]  # noqa: E731
+
+        skills.extend(
+            _tag(
+                _discover_opencode_global(config_path=pp / "opencode.json"),
+                "opencode_project",
+            )
+        )
+        skills.extend(
+            _tag(
+                _discover_continue(config_path=pp / ".continue" / "config.yaml"),
+                "continue_project",
+            )
+        )
+        skills.extend(
+            _tag(_discover_aider(config_path=pp / ".aider.conf.yml"), "aider_project")
+        )
+        skills.extend(
+            _tag(
+                _discover_claude_code(config_path=pp / ".claude" / "settings.json"),
+                "claude_code_project",
+            )
+        )
+        skills.extend(
+            _tag(
+                _discover_roo_cline(config_path=pp / ".vscode" / "settings.json"),
+                "roo_cline_project",
+            )
+        )
+        skills.extend(
+            _tag(
+                _discover_windsurf(rules_path=pp / ".windsurfrules"), "windsurf_project"
+            )
+        )
+        skills.extend(
+            _tag(_discover_cursor(rules_dir=pp / ".cursor" / "rules"), "cursor_project")
+        )
+        skills.extend(
+            _tag(
+                _discover_antigravity_skills(skills_dir=pp / ".agents" / "skills"),
+                "antigravity_project",
+            )
+        )
+
     return skills
 
 

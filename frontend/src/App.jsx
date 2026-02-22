@@ -237,55 +237,109 @@ function ServerCard({ server, selected, onToggle, targetPaths, onCopyPath, onDel
 /* ===== Target Selector ===== */
 
 function TargetSelector({ targets, selected, onToggle }) {
+    // MCP targets use a `category` field; skill/workflow/LLM targets use a `native` field.
+    // Detect which grouping mode to use.
+    const hasCategoryField = targets.some((t) => t.category);
+    const hasNativeField = targets.some((t) => t.native !== undefined);
+
+    // ---- MCP grouping (by category) ----
     const categoryMeta = {
         editor: { label: 'Editors & IDEs', icon: '🖥️' },
         desktop: { label: 'Desktop Apps', icon: '💻' },
         cli: { label: 'CLI Tools', icon: '⌨️' },
         plugin: { label: 'Editor Plugins', icon: '🧩' },
     };
-    const order = ['editor', 'desktop', 'cli', 'plugin'];
+    const categoryOrder = ['editor', 'desktop', 'cli', 'plugin'];
 
-    const groups = {};
-    targets.forEach((t) => {
-        const cat = t.category || 'editor';
-        if (!groups[cat]) groups[cat] = [];
-        groups[cat].push(t);
-    });
+    // ---- Skill/Workflow/LLM grouping (by native flag) ----
+    const nativeMeta = {
+        native: { label: 'Native Support', icon: '⭐' },
+        embedded: { label: 'Embedded in Config', icon: '📝' },
+    };
+    const nativeOrder = ['native', 'embedded'];
 
+    const renderItem = (t) => {
+        const key = t.id ?? t.name;
+        const disabled = t.config_exists === false;
+        return (
+            <label key={key} className={`target-item${disabled ? ' disabled' : ''}`}>
+                <input
+                    type="checkbox"
+                    checked={selected.has(key)}
+                    onChange={() => onToggle(key)}
+                    disabled={disabled}
+                />
+                <span
+                    className="target-dot"
+                    style={{ background: t.color || colorFor(t.name || t.id) }}
+                />
+                <div className="target-info">
+                    <div className="label">{t.display_name}</div>
+                    <div className="meta">
+                        {t.config_exists !== undefined
+                            ? (t.config_exists
+                                ? `${t.server_count} item${t.server_count !== 1 ? 's' : ''}`
+                                : 'config not found')
+                            : (t.config_path || '')}
+                    </div>
+                </div>
+            </label>
+        );
+    };
+
+    if (hasCategoryField) {
+        const groups = {};
+        targets.forEach((t) => {
+            const cat = t.category || 'editor';
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(t);
+        });
+        return (
+            <div className="target-categories">
+                {categoryOrder.filter((cat) => groups[cat]?.length).map((cat) => (
+                    <div key={cat} className="target-category-group">
+                        <div className="target-category-label">
+                            <span>{categoryMeta[cat]?.icon}</span>
+                            <span>{categoryMeta[cat]?.label || cat}</span>
+                        </div>
+                        {groups[cat].map(renderItem)}
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    if (hasNativeField) {
+        const groups = { native: [], embedded: [] };
+        targets.forEach((t) => {
+            const isNative = t.native === 'true' || t.native === true;
+            groups[isNative ? 'native' : 'embedded'].push(t);
+        });
+        return (
+            <div className="target-categories">
+                {nativeOrder.filter((g) => groups[g]?.length).map((g) => (
+                    <div key={g} className="target-category-group">
+                        <div className="target-category-label">
+                            <span>{nativeMeta[g].icon}</span>
+                            <span>{nativeMeta[g].label}</span>
+                        </div>
+                        {groups[g].map(renderItem)}
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    // Fallback: flat list
     return (
         <div className="target-categories">
-            {order.filter((cat) => groups[cat]?.length).map((cat) => (
-                <div key={cat} className="target-category-group">
-                    <div className="target-category-label">
-                        <span>{categoryMeta[cat]?.icon}</span>
-                        <span>{categoryMeta[cat]?.label || cat}</span>
-                    </div>
-                    {groups[cat].map((t) => (
-                        <label key={t.name} className="target-item">
-                            <input
-                                type="checkbox"
-                                checked={selected.has(t.name)}
-                                onChange={() => onToggle(t.name)}
-                            />
-                            <span
-                                className="target-dot"
-                                style={{ background: colorFor(t.name) }}
-                            />
-                            <div className="target-info">
-                                <div className="label">{t.display_name}</div>
-                                <div className="meta">
-                                    {t.config_exists
-                                        ? `${t.server_count} item${t.server_count !== 1 ? 's' : ''}`
-                                        : 'config not found'}
-                                </div>
-                            </div>
-                        </label>
-                    ))}
-                </div>
-            ))}
+            <div className="target-category-group">
+                {targets.map(renderItem)}
+            </div>
         </div>
     );
 }
+
 
 /* ===== Results Modal ===== */
 
@@ -1060,796 +1114,331 @@ function McpRegistryBrowserPage({ addToast, projects, scope, setScope, selectedP
     );
 }
 
-/* ===== Dashboard Page (original sync view) ===== */
+/* ===== Resource Card — generic dashboard item card with source pills ===== */
 
-function DashboardPage({ addToast, scope, setScope, projects, selectedProject, setSelectedProject, onAddProject, onRemoveProject }) {
-    const [activeTab, setActiveTab] = useState('servers');
-    const [servers, setServers] = useState([]);
-    const [skills, setSkills] = useState([]);
-    const [workflows, setWorkflows] = useState([]);
-    const [llms, setLlms] = useState([]);
+function ResourceCard({ item, selected, onToggle, onRemoveFromTarget }) {
+    const sources = item.sources || [];
+    const subtitle = item.description || item.url
+        || (item.command ? [item.command, ...(item.args || [])].filter(Boolean).join(' ') : null)
+        || item.provider_type || '—';
+
+    return (
+        <div className={`server-card${selected ? ' selected' : ''}`} onClick={onToggle}>
+            <div className="check">{selected ? '✓' : ''}</div>
+            <div className="name">{item.name}</div>
+            <div className="command">{subtitle}</div>
+            {sources.filter(s => s !== 'opensync').length > 0 && (
+                <div className="badge-group">
+                    {sources.filter(s => s !== 'opensync').map(s => (
+                        <span
+                            key={s}
+                            className="badge badge-with-remove badge-clickable"
+                            style={{ color: colorFor(s), borderColor: `${colorFor(s)}44` }}
+                            title={`Synced to ${labelFor(s)} · ✕ to remove`}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {labelFor(s)}
+                            <button
+                                className="badge-remove"
+                                onClick={e => { e.stopPropagation(); e.preventDefault(); onRemoveFromTarget?.(s); }}
+                                title={`Remove "${item.name}" from ${labelFor(s)}`}
+                            >✕</button>
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ===== Sync Type Config — per-artifact-type data/sync strategy ===== */
+
+const SYNC_TYPE_CONFIG = {
+    servers: {
+        icon: '🔌', label: 'MCP Servers',
+        loadItems: (scope, pp, _pn) => api.getServers(scope, pp),
+        discoverItems: null,
+        loadTargets: (scope, pp) => api.getTargets(scope, pp),
+        getSubtitle: (item) => item.url || [item.command, ...(item.args || [])].filter(Boolean).join(' ') || '—',
+        syncSelected: async (selected, items, selectedTargets, scope, pp) => {
+            const res = await api.sync([...selected], [...selectedTargets], scope, pp);
+            return res.results || [];
+        },
+    },
+    skills: {
+        icon: '🧠', label: 'Skills',
+        loadItems: (scope, _pp, pn) => api.getSkills(scope, pn),
+        discoverItems: (scope, projectPath) => scope === 'global' ? api.discoverSkills() : api.discoverSkills(projectPath),
+        loadTargets: () => api.getSkillTargets(),
+        syncSelected: async (selected, items, selectedTargets, scope, pp, selectedProject) => {
+            const targetIds = [...selectedTargets];
+            const allResults = [];
+            for (const name of selected) {
+                let item = items.find(i => i.name === name);
+                try {
+                    if (!item?.id) {
+                        item = await api.addSkill({ name: item?.name || name, description: item?.description || '', content: item?.content || '', scope, project_name: scope === 'project' ? selectedProject : null });
+                    }
+                    const res = await api.syncSkill(item.id, targetIds, pp);
+                    allResults.push(...(res.results || []).map(r => ({ ...r, target: `${name} → ${r.target_id}` })));
+                } catch (e) { allResults.push({ target: name, success: false, message: e.message }); }
+            }
+            return allResults;
+        },
+    },
+    workflows: {
+        icon: '🔁', label: 'Workflows',
+        loadItems: (scope, _pp, pn) => api.getWorkflows(scope, pn),
+        discoverItems: (scope, projectPath) => scope === 'global' ? api.discoverWorkflows() : api.discoverWorkflows(projectPath),
+        loadTargets: () => api.getWorkflowTargets(),
+        syncSelected: async (selected, items, selectedTargets, scope, pp, selectedProject) => {
+            const targetIds = [...selectedTargets];
+            const allResults = [];
+            for (const name of selected) {
+                let item = items.find(i => i.name === name);
+                try {
+                    if (!item?.id) {
+                        item = await api.addWorkflow({ name: item?.name || name, description: item?.description || '', content: item?.content || '', scope, project_name: scope === 'project' ? selectedProject : null });
+                    }
+                    const res = await api.syncWorkflow(item.id, targetIds, pp);
+                    allResults.push(...(res.results || []).map(r => ({ ...r, target: `${name} → ${r.target_id}` })));
+                } catch (e) { allResults.push({ target: name, success: false, message: e.message }); }
+            }
+            return allResults;
+        },
+    },
+    llm: {
+        icon: '🤖', label: 'LLM Providers',
+        loadItems: (scope, _pp, pn) => api.getLlmProviders(scope, pn),
+        discoverItems: (scope) => scope === 'global' ? api.discoverLlmProviders() : Promise.resolve([]),
+        loadTargets: () => api.getLlmProviderTargets(),
+        syncSelected: async (selected, items, selectedTargets, scope, pp, selectedProject) => {
+            const targetIds = [...selectedTargets];
+            const allResults = [];
+            for (const name of selected) {
+                let item = items.find(i => i.name === name);
+                try {
+                    if (!item?.id) {
+                        item = await api.addLlmProvider({ name: item?.name || name, provider_type: item?.provider_type || '', api_key: item?.api_key || '', base_url: item?.base_url || '', scope, project_name: scope === 'project' ? selectedProject : null });
+                    }
+                    const res = await api.syncLlmProvider(item.id, targetIds, pp);
+                    allResults.push(...(res.results || []).map(r => ({ ...r, target: `${name} → ${r.target_id}` })));
+                } catch (e) { allResults.push({ target: name, success: false, message: e.message }); }
+            }
+            return allResults;
+        },
+    },
+};
+
+/* ===== SyncPage — per-artifact-type discover + push page ===== */
+
+function SyncPage({ type, addToast, projects, selectedProject, setSelectedProject, onAddProject, onRemoveProject }) {
+    const config = SYNC_TYPE_CONFIG[type];
+    const [localScope, setLocalScope] = useState('global');
+    const projectPath = projects.find(p => p.name === selectedProject)?.path || '';
+    const pp = localScope === 'project' ? projectPath : null;
+    const pn = localScope === 'project' ? selectedProject : null;
+
+    const [items, setItems] = useState([]);
     const [targets, setTargets] = useState([]);
-    const [selectedServers, setSelectedServers] = useState(new Set());
-    const [selectedSkills, setSelectedSkills] = useState(new Set());
-    const [selectedWorkflows, setSelectedWorkflows] = useState(new Set());
-    const [selectedLlms, setSelectedLlms] = useState(new Set());
+    const [selectedItems, setSelectedItems] = useState(new Set());
     const [selectedTargets, setSelectedTargets] = useState(new Set());
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [results, setResults] = useState(null);
 
-    const projectPath = projects.find(p => p.name === selectedProject)?.path || '';
-
     const load = useCallback(async () => {
-        if (scope === 'project' && !projectPath) {
-            setServers([]);
-            setSkills([]);
-            setWorkflows([]);
-            setLlms([]);
-            setTargets([]);
-            setLoading(false);
-            return;
+        if (localScope === 'project' && !projectPath) {
+            setItems([]); setTargets([]); setLoading(false); return;
         }
         try {
             setLoading(true);
-            // getServers/getTargets use project_path; getSkills/getWorkflows/getLlmProviders use project_name
-            const pp = scope === 'project' ? projectPath : null;
-            const pn = scope === 'project' ? selectedProject : null;
-            const [srv, tgt, sk, wf, lm] = await Promise.all([
-                api.getServers(scope, pp),
-                api.getTargets(scope, pp),
-                api.getSkills(scope, pn),
-                api.getWorkflows(scope, pn),
-                api.getLlmProviders(scope, pn)
+            const [registered, discovered, tgts] = await Promise.all([
+                config.loadItems(localScope, pp, pn),
+                config.discoverItems ? config.discoverItems(localScope, pp) : Promise.resolve([]),
+                config.loadTargets(localScope, pp),
             ]);
-            setServers(srv);
-            setTargets(tgt);
-            setSkills(sk);
-            setWorkflows(wf);
-            setLlms(lm);
+            // Merge: registry items (with IDs) win, but union sources from both
+            const map = new Map();
+            for (const item of (discovered || [])) map.set(item.name, item);
+            for (const item of (registered || [])) {
+                const existing = map.get(item.name);
+                const mergedSources = existing
+                    ? [...new Set([...(existing.sources || []), ...(item.sources || [])])]
+                    : (item.sources || []);
+                map.set(item.name, { ...item, sources: mergedSources });
+            }
+            setItems([...map.values()]);
+            setTargets(tgts || []);
         } catch (err) {
             addToast(`Failed to load: ${err.message}`, 'error');
         } finally {
             setLoading(false);
         }
-    }, [scope, projectPath, selectedProject, addToast]);
+    }, [localScope, selectedProject, type]);
 
     useEffect(() => { load(); }, [load]);
+    useEffect(() => { setSelectedItems(new Set()); setSelectedTargets(new Set()); }, [localScope, selectedProject]);
 
-    useEffect(() => {
-        setSelectedServers(new Set());
-        setSelectedSkills(new Set());
-        setSelectedWorkflows(new Set());
-        setSelectedLlms(new Set());
-        setSelectedTargets(new Set());
-    }, [scope, selectedProject]);
-
-    const pathMap = useMemo(
-        () => Object.fromEntries(targets.map((t) => [t.name, t.config_path])),
-        [targets]
+    // Filter targets to only those matching the current scope.
+    // Targets without a `scope` field (e.g. MCP server targets) are always shown.
+    const scopedTargets = targets.filter(t =>
+        t.scope === undefined || t.scope === null || t.scope === localScope
     );
 
-    const toggleItem = (name, setSelection) => {
-        setSelection((prev) => {
-            const next = new Set(prev);
-            next.has(name) ? next.delete(name) : next.add(name);
-            return next;
-        });
-    };
 
-    const toggleTarget = (name) => {
-        setSelectedTargets((prev) => {
-            const next = new Set(prev);
-            next.has(name) ? next.delete(name) : next.add(name);
-            return next;
-        });
+    const toggleItem = (name) => setSelectedItems(prev => {
+        const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next;
+    });
+    const toggleTarget = (id) => setSelectedTargets(prev => {
+        const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+    });
+    const selectAll = () => {
+        if (selectedItems.size === items.length && items.length > 0) setSelectedItems(new Set());
+        else setSelectedItems(new Set(items.map(i => i.name)));
     };
-
-    const selectAllItems = (items, selected, setSelection) => {
-        if (selected.size === items.length) {
-            setSelection(new Set());
-        } else {
-            setSelection(new Set(items.map((i) => i.name)));
-        }
-    };
-
     const selectAllTargets = () => {
-        const available = targets.filter((t) => t.config_exists);
-        if (selectedTargets.size === available.length) {
-            setSelectedTargets(new Set());
-        } else {
-            setSelectedTargets(new Set(available.map((t) => t.name)));
-        }
+        const available = scopedTargets.filter(t => t.config_exists !== false);
+        const keys = available.map(t => t.id ?? t.name);
+        if (selectedTargets.size === available.length) setSelectedTargets(new Set());
+        else setSelectedTargets(new Set(keys));
     };
 
     const doSync = async () => {
-        // Since we only fully support servers syncing right now, we can pass them along.
-        // To be fully functional for skills, we would update api.sync
-        if (selectedServers.size === 0 && selectedSkills.size === 0 && selectedWorkflows.size === 0 && selectedLlms.size === 0) return;
-        if (selectedTargets.size === 0) return;
+        if (selectedItems.size === 0 || selectedTargets.size === 0) return;
         try {
             setSyncing(true);
-            const pp = scope === 'project' ? projectPath.trim() : null;
-            // Provide all selected resource names to the sync endpoint. 
-            // Currently api.js expects: sync(serverNames, targetNames, scope, projectPath)
-            // As a stub for future, we still call the same endpoint.
-            const res = await api.sync([...selectedServers], [...selectedTargets], scope, pp);
-            setResults(res);
-            const ok = res.results.filter((r) => r.success).length;
-            const fail = res.results.length - ok;
-            addToast(
-                `Sync complete: ${ok} succeeded${fail ? `, ${fail} failed` : ''}`,
-                fail ? 'error' : 'success'
-            );
+            const allResults = await config.syncSelected(selectedItems, items, selectedTargets, localScope, pp, selectedProject);
+            setResults({ results: allResults });
+            const ok = allResults.filter(r => r.success).length;
+            const fail = allResults.length - ok;
+            addToast(`Sync complete: ${ok} succeeded${fail ? `, ${fail} failed` : ''}`, fail ? 'error' : 'success');
             await load();
         } catch (err) {
             addToast(`Sync failed: ${err.message}`, 'error');
-        } finally {
-            setSyncing(false);
-        }
+        } finally { setSyncing(false); }
     };
 
-    const handleDeleteFromRegistry = async (id) => {
-        try {
-            await api.removeFromRegistry(id, scope, scope === 'project' ? selectedProject : null);
-            addToast('Server removed from registry', 'success');
-            await load();
-        } catch (err) {
-            addToast(`Failed to remove: ${err.message}`, 'error');
-        }
-    };
-
-    const handleRemoveFromTarget = async (serverName, targetName) => {
-        try {
-            const pp = scope === 'project' ? projectPath : null;
-            await api.removeServer(serverName, [targetName], pp);
-            addToast(`Removed "${serverName}" from ${labelFor(targetName)}`, 'success');
-            await load();
-        } catch (err) {
-            addToast(`Failed to remove: ${err.message}`, 'error');
+    const handleRemoveFromTarget = async (item, sourceId) => {
+        if (type === 'servers') {
+            try {
+                await api.removeServer(item.name, [sourceId], pp);
+                addToast(`Removed "${item.name}" from ${labelFor(sourceId)}`, 'success');
+                await load();
+            } catch (err) { addToast(`Failed to remove: ${err.message}`, 'error'); }
+        } else {
+            addToast(`To remove "${item.name}" from ${labelFor(sourceId)}, delete the file in that agent's config directory.`, 'info');
         }
     };
 
     const handleAddToRegistry = async (server) => {
+        if (type !== 'servers') return;
         try {
-            const regScope = scope === 'project' ? 'project' : 'global';
-            const projectName = scope === 'project' ? selectedProject : undefined;
+            const regScope = localScope;
+            const projectName = localScope === 'project' ? selectedProject : undefined;
             await api.addToRegistry({
-                name: server.name,
-                command: server.command,
-                args: server.args || [],
-                env: server.env || {},
-                url: server.url || null,
-                scope: regScope,
-                project_name: projectName,
+                name: server.name, command: server.command, args: server.args || [],
+                env: server.env || {}, url: server.url || null, scope: regScope, project_name: projectName,
             });
-            addToast(
-                `Server "${server.name}" added to ${regScope === 'project' ? selectedProject + ' project' : 'global'} registry`,
-                'success'
-            );
+            addToast(`"${server.name}" added to OpenSync registry`, 'success');
             await load();
-        } catch (err) {
-            addToast(`Failed to add to registry: ${err.message}`, 'error');
-        }
+        } catch (err) { addToast(`Failed to add to registry: ${err.message}`, 'error'); }
     };
 
-    if (loading) {
-        return (
-            <div>
-                <ScopeToggle
-                    scope={scope} onScopeChange={setScope} projects={projects}
-                    selectedProject={selectedProject} onSelectProject={(name) => setSelectedProject(name || null)}
-                    onAddProject={onAddProject} onRemoveProject={onRemoveProject}
-                />
-                <div className="loading"><div className="spinner" /><div>Discovering Resources…</div></div>
-            </div>
-        );
-    }
-
-    const TABS = [
-        { id: 'servers', label: '🔌 MCP Servers', items: servers, selected: selectedServers, setSelection: setSelectedServers },
-        { id: 'skills', label: '🧠 Skills', items: skills, selected: selectedSkills, setSelection: setSelectedSkills },
-        { id: 'workflows', label: '🔄 Workflows', items: workflows, selected: selectedWorkflows, setSelection: setSelectedWorkflows },
-        { id: 'llms', label: '🤖 LLM Providers', items: llms, selected: selectedLlms, setSelection: setSelectedLlms },
-    ];
-
-    const currentTabData = TABS.find(t => t.id === activeTab);
-
     return (
-        <div>
-            <ScopeToggle
-                scope={scope} onScopeChange={setScope} projects={projects}
-                selectedProject={selectedProject} onSelectProject={(name) => setSelectedProject(name || null)}
-                onAddProject={onAddProject} onRemoveProject={onRemoveProject}
-            />
-
-            <div className="scope-tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid #333' }}>
-                {TABS.map(t => (
-                    <button
-                        key={t.id}
-                        className={`scope-tab${activeTab === t.id ? ' active' : ''}`}
-                        onClick={() => setActiveTab(t.id)}
-                        style={{ borderBottom: activeTab === t.id ? '2px solid #fff' : 'none', borderRadius: 0, paddingBottom: '0.5rem' }}
+        <div className="page dashboard-page">
+            {/* Scope toggle */}
+            <div className="scope-bar">
+                <button className={`scope-tab${localScope === 'global' ? ' active' : ''}`} onClick={() => setLocalScope('global')}>🌐 Global</button>
+                <button className={`scope-tab${localScope === 'project' ? ' active' : ''}`} onClick={() => setLocalScope('project')}>📁 Project</button>
+                {localScope === 'project' && (
+                    <select
+                        className="project-select"
+                        value={selectedProject || ''}
+                        onChange={e => setSelectedProject(e.target.value || null)}
                     >
-                        {t.label} ({t.items.length})
-                    </button>
-                ))}
+                        <option value="">— select project —</option>
+                        {projects.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                )}
             </div>
 
-            <div className="grid-2">
-                {/* Left: Resources */}
-                <div>
-                    <div className="panel">
-                        <div className="panel-title">
-                            <span className="icon">{currentTabData.label.split(' ')[0]}</span>
-                            {currentTabData.label.split(' ').slice(1).join(' ')}
-                            <span className="scope-badge">{scope}</span>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                            <button className="select-all" onClick={() => selectAllItems(currentTabData.items, currentTabData.selected, currentTabData.setSelection)}>
-                                {currentTabData.selected.size === currentTabData.items.length && currentTabData.items.length > 0 ? 'Deselect all' : 'Select all'}
+            {loading ? (
+                <div className="loading"><div className="spinner" /><div>Discovering…</div></div>
+            ) : (
+                <div className="grid-2">
+                    {/* Left: items */}
+                    <div>
+                        <div className="panel">
+                            <div className="panel-title">
+                                <span className="icon">{config.icon}</span>
+                                {config.label}
+                                <span className="scope-badge">{localScope}</span>
+                            </div>
+                            <button className="select-all" onClick={selectAll}>
+                                {selectedItems.size === items.length && items.length > 0 ? 'Deselect all' : 'Select all'}
                             </button>
+                            {items.length === 0 ? (
+                                <div className="empty">
+                                    <div className="emoji">🔍</div>
+                                    {localScope === 'project' && !projectPath
+                                        ? 'Select a project above to scan for items.'
+                                        : `No ${config.label} found.`}
+                                </div>
+                            ) : (
+                                <div className="server-list">
+                                    {items.map(item => (
+                                        <ResourceCard
+                                            key={item.name}
+                                            item={item}
+                                            selected={selectedItems.has(item.name)}
+                                            onToggle={() => toggleItem(item.name)}
+                                            onRemoveFromTarget={sourceId => handleRemoveFromTarget(item, sourceId)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </div>
+                    </div>
 
-                        {currentTabData.items.length === 0 ? (
-                            <div className="empty">
-                                <div className="emoji">🔍</div>
-                                {scope === 'project' && !projectPath.trim()
-                                    ? `Enter a project path above to scan for ${currentTabData.label}.`
-                                    : `No ${currentTabData.label} found. Add them to sync.`}
+                    {/* Right: targets */}
+                    <div>
+                        <div className="panel">
+                            <div className="panel-title">
+                                <span className="icon">🎯</span>
+                                Sync Targets
+                                <span className="scope-badge">{localScope}</span>
                             </div>
-                        ) : (
-                            <div className="server-list">
-                                {currentTabData.items.map((item) => (
-                                    <div
-                                        key={item.name}
-                                        className={`server-card${currentTabData.selected.has(item.name) ? ' selected' : ''}`}
-                                        onClick={() => toggleItem(item.name, currentTabData.setSelection)}
-                                    >
-                                        <div className="check">{currentTabData.selected.has(item.name) ? '✓' : ''}</div>
-                                        <div className="name">
-                                            {item.name}
-                                        </div>
-                                        <div className="command">{item.description || item.command || item.provider_type || '—'}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                            <button className="select-all" onClick={selectAllTargets}>
+                                {selectedTargets.size === scopedTargets.filter(t => t.config_exists !== false).length
+                                    ? 'Deselect all' : 'Select all available'}
+                            </button>
+                            <TargetSelector targets={scopedTargets} selected={selectedTargets} onToggle={toggleTarget} />
+
+                        </div>
                     </div>
                 </div>
-
-                {/* Right: Targets */}
-                <div>
-                    <div className="panel">
-                        <div className="panel-title">
-                            <span className="icon">🎯</span>
-                            Sync Targets
-                            <span className="scope-badge">{scope}</span>
-                        </div>
-
-                        <button className="select-all" onClick={selectAllTargets}>
-                            {selectedTargets.size === targets.filter((t) => t.config_exists).length
-                                ? 'Deselect all'
-                                : 'Select all available'}
-                        </button>
-
-                        <TargetSelector
-                            targets={targets}
-                            selected={selectedTargets}
-                            onToggle={toggleTarget}
-                        />
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Sync bar */}
             <div className="sync-bar">
                 <div className="summary">
-                    <strong>{selectedServers.size + selectedSkills.size + selectedWorkflows.size + selectedLlms.size}</strong> item(s) →{' '}
-                    <strong>{selectedTargets.size}</strong> target(s)
+                    <strong>{selectedItems.size}</strong> item(s) → <strong>{selectedTargets.size}</strong> target(s)
                 </div>
                 <button
                     className="btn btn-primary"
-                    disabled={(selectedServers.size === 0 && selectedSkills.size === 0 && selectedWorkflows.size === 0 && selectedLlms.size === 0) || selectedTargets.size === 0 || syncing}
+                    disabled={selectedItems.size === 0 || selectedTargets.size === 0 || syncing || loading}
                     onClick={doSync}
                 >
                     {syncing ? '⏳ Syncing…' : '🔄 Sync Now'}
                 </button>
             </div>
 
-            <ResultsModal results={results} onClose={() => setResults(null)} />
+            {results && <ResultsModal results={results} onClose={() => setResults(null)} />}
         </div>
     );
 }
 
-/* ===== Markdown Editor ===== */
-
-/** Minimal markdown → HTML renderer (no external deps). */
-function renderMarkdown(md) {
-    if (!md) return '';
-    let html = md
-        // Headings
-        .replace(/^#{6}\s+(.+)$/gm, '<h6>$1</h6>')
-        .replace(/^#{5}\s+(.+)$/gm, '<h5>$1</h5>')
-        .replace(/^#{4}\s+(.+)$/gm, '<h4>$1</h4>')
-        .replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>')
-        .replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>')
-        .replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>')
-        // Code blocks (``` fenced)
-        .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
-        // Inline code
-        .replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`)
-        // Bold + italic
-        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/__(.+?)__/g, '<strong>$1</strong>')
-        .replace(/_(.+?)_/g, '<em>$1</em>')
-        // Blockquotes
-        .replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>')
-        .replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>')
-        // Unordered list items
-        .replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>')
-        // Ordered list items
-        .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
-        // Horizontal rules
-        .replace(/^(-{3,}|\*{3,})$/gm, '<hr>')
-        // Line breaks → paragraph breaks
-        .replace(/\n{2,}/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-
-    // Wrap bare li elements in ul
-    html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, match =>
-        `<ul>${match.replace(/<br>/g, '')}</ul>`);
-
-    return `<p>${html}</p>`
-        .replace(/<p><\/p>/g, '')
-        .replace(/<p>(<h[1-6]>)/g, '$1')
-        .replace(/(<\/h[1-6]>)<\/p>/g, '$1')
-        .replace(/<p>(<pre>)/g, '$1')
-        .replace(/(<\/pre>)<\/p>/g, '$1')
-        .replace(/<p>(<ul>)/g, '$1')
-        .replace(/(<\/ul>)<\/p>/g, '$1')
-        .replace(/<p>(<hr>)<\/p>/g, '$1')
-        .replace(/<p>(<blockquote>)/g, '$1')
-        .replace(/(<\/blockquote>)<\/p>/g, '$1');
-}
-
-function escHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-const TOOLBAR = [
-    { label: 'B', title: 'Bold', wrap: ['**', '**'], icon: '𝐁' },
-    { label: 'I', title: 'Italic', wrap: ['*', '*'], icon: '𝐼' },
-    { label: 'H2', title: 'Heading 2', prefix: '## ', icon: 'H₂' },
-    { label: 'H3', title: 'Heading 3', prefix: '### ', icon: 'H₃' },
-    { label: '`', title: 'Inline code', wrap: ['`', '`'], icon: '`' },
-    { label: '```', title: 'Code block', wrap: ['```\n', '\n```'], icon: '⟨⟩' },
-    { label: '-', title: 'List item', prefix: '- ', icon: '≡' },
-    { label: 'hr', title: 'Divider', insert: '\n---\n', icon: '—' },
-    { label: '>', title: 'Blockquote', prefix: '> ', icon: '❝' },
-];
-
-function MarkdownEditor({ value, onChange, placeholder, rows = 12 }) {
-    const taRef = useRef(null);
-    const [mode, setMode] = useState('split'); // 'write' | 'preview' | 'split'
-
-    const applyFormat = (btn) => {
-        const ta = taRef.current;
-        if (!ta) return;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const sel = value.slice(start, end);
-        let next;
-
-        if (btn.insert) {
-            next = value.slice(0, start) + btn.insert + value.slice(end);
-            ta.focus();
-            setTimeout(() => {
-                const p = start + btn.insert.length;
-                ta.setSelectionRange(p, p);
-            }, 0);
-        } else if (btn.wrap) {
-            const [before, after] = btn.wrap;
-            next = value.slice(0, start) + before + (sel || 'text') + after + value.slice(end);
-            ta.focus();
-            setTimeout(() => {
-                ta.setSelectionRange(start + before.length, start + before.length + (sel || 'text').length);
-            }, 0);
-        } else if (btn.prefix) {
-            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-            next = value.slice(0, lineStart) + btn.prefix + value.slice(lineStart);
-            ta.focus();
-            setTimeout(() => {
-                const p = start + btn.prefix.length;
-                ta.setSelectionRange(p, p);
-            }, 0);
-        }
-
-        onChange({ target: { value: next } });
-    };
-
-    const preview = useMemo(() => renderMarkdown(value), [value]);
-
-    return (
-        <div className="md-editor">
-            <div className="md-toolbar">
-                <div className="md-toolbar-btns">
-                    {TOOLBAR.map(btn => (
-                        <button
-                            key={btn.label}
-                            type="button"
-                            className="md-toolbar-btn"
-                            title={btn.title}
-                            onMouseDown={e => { e.preventDefault(); applyFormat(btn); }}
-                        >
-                            {btn.icon}
-                        </button>
-                    ))}
-                </div>
-                <div className="md-toolbar-modes">
-                    {['write', 'split', 'preview'].map(m => (
-                        <button
-                            key={m}
-                            type="button"
-                            className={`md-mode-btn${mode === m ? ' active' : ''}`}
-                            onClick={() => setMode(m)}
-                        >
-                            {m === 'write' ? '✏️' : m === 'split' ? '⬛⬜' : '👁'}
-                        </button>
-                    ))}
-                </div>
-            </div>
-            <div className={`md-panes md-panes--${mode}`}>
-                {mode !== 'preview' && (
-                    <textarea
-                        ref={taRef}
-                        className="md-pane-write"
-                        value={value}
-                        onChange={onChange}
-                        placeholder={placeholder}
-                        rows={rows}
-                        spellCheck
-                    />
-                )}
-                {mode !== 'write' && (
-                    <div
-                        className="md-pane-preview"
-                        dangerouslySetInnerHTML={{ __html: preview || '<span class="md-empty">Nothing to preview…</span>' }}
-                    />
-                )}
-            </div>
-        </div>
-    );
-}
-
-/* ===== Generic Registry Page helpers ===== */
-
-function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
-    const [form, setForm] = useState({
-        name: initialData?.name || '',
-        description: initialData?.description || '',
-        content: initialData?.content || '',
-    });
-    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-    const submit = (e) => {
-        e.preventDefault();
-        if (!form.name.trim()) return;
-        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
-    };
-    return (
-        <form className="add-form" onSubmit={submit}>
-            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-skill" required /></div>
-            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
-            <div className="form-group full">
-                <label>Content / Instructions <span className="md-label-hint">(Markdown supported)</span></label>
-                <MarkdownEditor
-                    value={form.content}
-                    onChange={set('content')}
-                    placeholder="You are a helpful…"
-                    rows={10}
-                />
-            </div>
-            <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
-            </div>
-        </form>
-    );
-}
-
-function WorkflowForm({ initialData, onSave, onCancel, saveLabel }) {
-    const [form, setForm] = useState({
-        name: initialData?.name || '',
-        description: initialData?.description || '',
-        content: initialData?.content || '',
-    });
-    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-    const submit = (e) => {
-        e.preventDefault();
-        if (!form.name.trim()) return;
-        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
-    };
-    return (
-        <form className="add-form" onSubmit={submit}>
-            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-workflow" required /></div>
-            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
-            <div className="form-group full">
-                <label>Steps <span className="md-label-hint">(Markdown supported)</span></label>
-                <MarkdownEditor
-                    value={form.content}
-                    onChange={set('content')}
-                    placeholder="## Step 1\nDo the first thing...\n\n## Step 2\nDo the second thing..."
-                    rows={10}
-                />
-            </div>
-            <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
-            </div>
-        </form>
-    );
-}
-
-const LLM_PROVIDER_TYPES = ['openai', 'anthropic', 'ollama', 'gemini', 'custom'];
-
-function LlmProviderForm({ initialData, onSave, onCancel, saveLabel }) {
-    const [form, setForm] = useState({
-        name: initialData?.name || '',
-        provider_type: initialData?.provider_type || 'openai',
-        api_key: initialData?.api_key || '',
-        base_url: initialData?.base_url || '',
-    });
-    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-    const submit = (e) => {
-        e.preventDefault();
-        if (!form.name.trim()) return;
-        onSave({ name: form.name.trim(), provider_type: form.provider_type, api_key: form.api_key.trim() || null, base_url: form.base_url.trim() || null });
-    };
-    return (
-        <form className="add-form" onSubmit={submit}>
-            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-openai" required /></div>
-            <div className="form-group">
-                <label>Provider Type</label>
-                <select value={form.provider_type} onChange={set('provider_type')} className="project-select">
-                    {LLM_PROVIDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-            </div>
-            <div className="form-group full"><label>API Key</label><input type="password" value={form.api_key} onChange={set('api_key')} placeholder="sk-…" /></div>
-            <div className="form-group full"><label>Base URL (optional)</label><input value={form.base_url} onChange={set('base_url')} placeholder="https://api.openai.com/v1" /></div>
-            <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
-            </div>
-        </form>
-    );
-}
-
-function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
-    const [showPush, setShowPush] = useState(false);
-    const [selectedTargets, setSelectedTargets] = useState(new Set());
-    const [pushing, setPushing] = useState(false);
-
-    const toggleTarget = (id) => {
-        setSelectedTargets(prev => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
-
-    const doPush = async () => {
-        if (selectedTargets.size === 0 || !item.id) return;
-        setPushing(true);
-        await onPush(item.id, [...selectedTargets]);
-        setPushing(false);
-        setShowPush(false);
-        setSelectedTargets(new Set());
-    };
-
-    return (
-        <div className="server-card registry-card">
-            <div className="name">{item.name}</div>
-            <div className="command">{item.description || '—'}</div>
-            {item.content && (
-                <div
-                    className="md-card-preview"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content.slice(0, 300) + (item.content.length > 300 ? '…' : '')) }}
-                />
-            )}
-            <div className="server-actions">
-                {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
-                        🔄 Sync to…
-                    </button>
-                )}
-                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
-                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
-            </div>
-            {showPush && targets && (
-                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
-                        {targets.map(t => (
-                            <label
-                                key={t.id}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
-                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
-                                    border: `1px solid ${t.color || '#555'}`,
-                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
-                                    transition: 'all 0.15s',
-                                }}
-                            >
-                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
-                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
-                            </label>
-                        ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
-                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
-                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
-    const [showPush, setShowPush] = useState(false);
-    const [selectedTargets, setSelectedTargets] = useState(new Set());
-    const [pushing, setPushing] = useState(false);
-
-    const toggleTarget = (id) => {
-        setSelectedTargets(prev => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
-
-    const doPush = async () => {
-        if (selectedTargets.size === 0 || !item.id) return;
-        setPushing(true);
-        await onPush(item.id, [...selectedTargets]);
-        setPushing(false);
-        setShowPush(false);
-        setSelectedTargets(new Set());
-    };
-
-    return (
-        <div className="server-card registry-card">
-            <div className="name">{item.name}</div>
-            <div className="command">{item.description || '—'}</div>
-            {item.steps?.length > 0 && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.steps.length} step{item.steps.length !== 1 ? 's' : ''}</div>}
-            <div className="server-actions">
-                {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
-                        🔄 Sync to…
-                    </button>
-                )}
-                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
-                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
-            </div>
-            {showPush && targets && (
-                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
-                        {targets.map(t => (
-                            <label
-                                key={t.id}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
-                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
-                                    border: `1px solid ${t.color || '#555'}`,
-                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
-                                    transition: 'all 0.15s',
-                                }}
-                            >
-                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
-                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
-                            </label>
-                        ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
-                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
-                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
-    const [showPush, setShowPush] = useState(false);
-    const [selectedTargets, setSelectedTargets] = useState(new Set());
-    const [pushing, setPushing] = useState(false);
-
-    const toggleTarget = (id) => {
-        setSelectedTargets(prev => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
-
-    const doPush = async () => {
-        if (selectedTargets.size === 0 || !item.id) return;
-        setPushing(true);
-        await onPush(item.id, [...selectedTargets]);
-        setPushing(false);
-        setShowPush(false);
-        setSelectedTargets(new Set());
-    };
-
-    return (
-        <div className="server-card registry-card">
-            <div className="name">{item.name}</div>
-            <div className="command">
-                <span className="env-tag" style={{ marginRight: '0.5rem' }}>{item.provider_type}</span>
-                {item.base_url && <span style={{ opacity: 0.7, fontSize: '0.8rem' }}>{item.base_url}</span>}
-            </div>
-            {item.api_key && <div className="command" style={{ opacity: 0.5, fontSize: '0.75rem' }}>API key: ••••••••</div>}
-            <div className="server-actions">
-                {targets && targets.length > 0 && (
-                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
-                        🔄 Sync to…
-                    </button>
-                )}
-                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
-                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
-            </div>
-            {showPush && targets && (
-                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
-                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
-                        {targets.map(t => (
-                            <label
-                                key={t.id}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
-                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
-                                    border: `1px solid ${t.color || '#555'}`,
-                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
-                                    transition: 'all 0.15s',
-                                }}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={selectedTargets.has(t.id)}
-                                    onChange={() => toggleTarget(t.id)}
-                                    style={{ display: 'none' }}
-                                />
-                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
-                            </label>
-                        ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
-                        <button
-                            className="btn btn-primary btn-sm"
-                            disabled={selectedTargets.size === 0 || pushing}
-                            onClick={doPush}
-                        >
-                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
 
 /* ===== Generic scoped registry page factory ===== */
 
@@ -2374,6 +1963,501 @@ function ImportItemFromGlobalModal({ globalItems, projectItems, onImport, onClos
 }
 
 /* ===== Concrete registry pages ===== */
+
+
+
+/* ===== Markdown helpers ===== */
+
+function renderMarkdown(md) {
+    if (!md) return '';
+    let html = md
+        // Headings
+        .replace(/^#{6}\s+(.+)$/gm, '<h6>$1</h6>')
+        .replace(/^#{5}\s+(.+)$/gm, '<h5>$1</h5>')
+        .replace(/^#{4}\s+(.+)$/gm, '<h4>$1</h4>')
+        .replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>')
+        .replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>')
+        .replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>')
+        // Code blocks (``` fenced)
+        .replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${escHtml(code.trim())}</code></pre>`)
+        // Inline code
+        .replace(/`([^`]+)`/g, (_, c) => `<code>${escHtml(c)}</code>`)
+        // Bold + italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        // Blockquotes
+        .replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>')
+        // Unordered list items
+        .replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>')
+        // Ordered list items
+        .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+        // Horizontal rules
+        .replace(/^(-{3,}|\*{3,})$/gm, '<hr>')
+        // Line breaks → paragraph breaks
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+
+    // Wrap bare li elements in ul
+    html = html.replace(/(<li>.*?<\/li>(?:<br>)?)+/gs, match =>
+        `<ul>${match.replace(/<br>/g, '')}</ul>`);
+
+    return `<p>${html}</p>`
+        .replace(/<p><\/p>/g, '')
+        .replace(/<p>(<h[1-6]>)/g, '$1')
+        .replace(/(<\/h[1-6]>)<\/p>/g, '$1')
+        .replace(/<p>(<pre>)/g, '$1')
+        .replace(/(<\/pre>)<\/p>/g, '$1')
+        .replace(/<p>(<ul>)/g, '$1')
+        .replace(/(<\/ul>)<\/p>/g, '$1')
+        .replace(/<p>(<hr>)<\/p>/g, '$1')
+        .replace(/<p>(<blockquote>)/g, '$1')
+        .replace(/(<\/blockquote>)<\/p>/g, '$1');
+}
+
+function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const TOOLBAR = [
+    { label: 'B', title: 'Bold', wrap: ['**', '**'], icon: '𝐁' },
+    { label: 'I', title: 'Italic', wrap: ['*', '*'], icon: '𝐼' },
+    { label: 'H2', title: 'Heading 2', prefix: '## ', icon: 'H₂' },
+    { label: 'H3', title: 'Heading 3', prefix: '### ', icon: 'H₃' },
+    { label: '`', title: 'Inline code', wrap: ['`', '`'], icon: '`' },
+    { label: '```', title: 'Code block', wrap: ['```\n', '\n```'], icon: '⟨⟩' },
+    { label: '-', title: 'List item', prefix: '- ', icon: '≡' },
+    { label: 'hr', title: 'Divider', insert: '\n---\n', icon: '—' },
+    { label: '>', title: 'Blockquote', prefix: '> ', icon: '❝' },
+];
+
+function MarkdownEditor({ value, onChange, placeholder, rows = 12 }) {
+    const taRef = useRef(null);
+    const [mode, setMode] = useState('split'); // 'write' | 'preview' | 'split'
+
+    const applyFormat = (btn) => {
+        const ta = taRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const sel = value.slice(start, end);
+        let next;
+
+        if (btn.insert) {
+            next = value.slice(0, start) + btn.insert + value.slice(end);
+            ta.focus();
+            setTimeout(() => {
+                const p = start + btn.insert.length;
+                ta.setSelectionRange(p, p);
+            }, 0);
+        } else if (btn.wrap) {
+            const [before, after] = btn.wrap;
+            next = value.slice(0, start) + before + (sel || 'text') + after + value.slice(end);
+            ta.focus();
+            setTimeout(() => {
+                ta.setSelectionRange(start + before.length, start + before.length + (sel || 'text').length);
+            }, 0);
+        } else if (btn.prefix) {
+            const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+            next = value.slice(0, lineStart) + btn.prefix + value.slice(lineStart);
+            ta.focus();
+            setTimeout(() => {
+                const p = start + btn.prefix.length;
+                ta.setSelectionRange(p, p);
+            }, 0);
+        }
+
+        onChange({ target: { value: next } });
+    };
+
+    const preview = useMemo(() => renderMarkdown(value), [value]);
+
+    return (
+        <div className="md-editor">
+            <div className="md-toolbar">
+                <div className="md-toolbar-btns">
+                    {TOOLBAR.map(btn => (
+                        <button
+                            key={btn.label}
+                            type="button"
+                            className="md-toolbar-btn"
+                            title={btn.title}
+                            onMouseDown={e => { e.preventDefault(); applyFormat(btn); }}
+                        >
+                            {btn.icon}
+                        </button>
+                    ))}
+                </div>
+                <div className="md-toolbar-modes">
+                    {['write', 'split', 'preview'].map(m => (
+                        <button
+                            key={m}
+                            type="button"
+                            className={`md-mode-btn${mode === m ? ' active' : ''}`}
+                            onClick={() => setMode(m)}
+                        >
+                            {m === 'write' ? '✏️' : m === 'split' ? '⬛⬜' : '👁'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className={`md-panes md-panes--${mode}`}>
+                {mode !== 'preview' && (
+                    <textarea
+                        ref={taRef}
+                        className="md-pane-write"
+                        value={value}
+                        onChange={onChange}
+                        placeholder={placeholder}
+                        rows={rows}
+                        spellCheck
+                    />
+                )}
+                {mode !== 'write' && (
+                    <div
+                        className="md-pane-preview"
+                        dangerouslySetInnerHTML={{ __html: preview || '<span class="md-empty">Nothing to preview…</span>' }}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ===== Generic Registry Page helpers ===== */
+
+
+/* ===== Skill / Workflow / LLM forms and cards ===== */
+
+function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        description: initialData?.description || '',
+        content: initialData?.content || '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-skill" required /></div>
+            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
+            <div className="form-group full">
+                <label>Content / Instructions <span className="md-label-hint">(Markdown supported)</span></label>
+                <MarkdownEditor
+                    value={form.content}
+                    onChange={set('content')}
+                    placeholder="You are a helpful…"
+                    rows={10}
+                />
+            </div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+function WorkflowForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        description: initialData?.description || '',
+        content: initialData?.content || '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-workflow" required /></div>
+            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
+            <div className="form-group full">
+                <label>Steps <span className="md-label-hint">(Markdown supported)</span></label>
+                <MarkdownEditor
+                    value={form.content}
+                    onChange={set('content')}
+                    placeholder="## Step 1\nDo the first thing...\n\n## Step 2\nDo the second thing..."
+                    rows={10}
+                />
+            </div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+const LLM_PROVIDER_TYPES = ['openai', 'anthropic', 'ollama', 'gemini', 'custom'];
+
+function LlmProviderForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        provider_type: initialData?.provider_type || 'openai',
+        api_key: initialData?.api_key || '',
+        base_url: initialData?.base_url || '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        onSave({ name: form.name.trim(), provider_type: form.provider_type, api_key: form.api_key.trim() || null, base_url: form.base_url.trim() || null });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-openai" required /></div>
+            <div className="form-group">
+                <label>Provider Type</label>
+                <select value={form.provider_type} onChange={set('provider_type')} className="project-select">
+                    {LLM_PROVIDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+            </div>
+            <div className="form-group full"><label>API Key</label><input type="password" value={form.api_key} onChange={set('api_key')} placeholder="sk-…" /></div>
+            <div className="form-group full"><label>Base URL (optional)</label><input value={form.base_url} onChange={set('base_url')} placeholder="https://api.openai.com/v1" /></div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">{item.description || '—'}</div>
+            {item.content && (
+                <div
+                    className="md-card-preview"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content.slice(0, 300) + (item.content.length > 300 ? '…' : '')) }}
+                />
+            )}
+            <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
+                    </button>
+                )}
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">{item.description || '—'}</div>
+            {item.steps?.length > 0 && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.steps.length} step{item.steps.length !== 1 ? 's' : ''}</div>}
+            <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
+                    </button>
+                )}
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function LlmProviderCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">
+                <span className="env-tag" style={{ marginRight: '0.5rem' }}>{item.provider_type}</span>
+                {item.base_url && <span style={{ opacity: 0.7, fontSize: '0.8rem' }}>{item.base_url}</span>}
+            </div>
+            {item.api_key && <div className="command" style={{ opacity: 0.5, fontSize: '0.75rem' }}>API key: ••••••••</div>}
+            <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Sync to agent configs">
+                        🔄 Sync to…
+                    </button>
+                )}
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Sync to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={selectedTargets.has(t.id)}
+                                    onChange={() => toggleTarget(t.id)}
+                                    style={{ display: 'none' }}
+                                />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            disabled={selectedTargets.size === 0 || pushing}
+                            onClick={doPush}
+                        >
+                            {pushing ? '⏳ Syncing…' : `🔄 Sync to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ===== Generic scoped registry page factory ===== */
+
 
 function GlobalSkillsPage({ addToast, projects }) {
     const [items, setItems] = useState([]);
@@ -3146,58 +3230,59 @@ function useHashRoute() {
 /* ===== Nav Bar ===== */
 
 const NAV_SECTIONS = [
-    { id: 'dashboard', label: '⚡ Dashboard', defaultHash: '#/' },
     {
         id: 'servers',
         label: '🔌 MCP Servers',
-        defaultHash: '#/registry/global',
+        defaultHash: '#/servers/sync',
         links: [
-            { hash: '#/registry/global', label: '🌐 Global' },
-            { hash: '#/registry/project', label: '📁 Project' },
-            { hash: '#/registry/browse', label: '🔍 Browse MCP' },
+            { hash: '#/servers/sync', label: '🔄 Sync' },
+            { hash: '#/servers/global', label: '🌐 Global' },
+            { hash: '#/servers/project', label: '📁 Project' },
+            { hash: '#/servers/browse', label: '🔍 Browse MCP' },
         ],
     },
     {
         id: 'skills',
         label: '🧠 Skills',
-        defaultHash: '#/registry/skills/global',
+        defaultHash: '#/skills/sync',
         links: [
-            { hash: '#/registry/skills/global', label: '🌐 Global' },
-            { hash: '#/registry/skills/project', label: '📁 Project' },
+            { hash: '#/skills/sync', label: '🔄 Sync' },
+            { hash: '#/skills/global', label: '🌐 Global' },
+            { hash: '#/skills/project', label: '📁 Project' },
         ],
     },
     {
         id: 'workflows',
         label: '🔁 Workflows',
-        defaultHash: '#/registry/workflows/global',
+        defaultHash: '#/workflows/sync',
         links: [
-            { hash: '#/registry/workflows/global', label: '🌐 Global' },
-            { hash: '#/registry/workflows/project', label: '📁 Project' },
+            { hash: '#/workflows/sync', label: '🔄 Sync' },
+            { hash: '#/workflows/global', label: '🌐 Global' },
+            { hash: '#/workflows/project', label: '📁 Project' },
         ],
     },
     {
         id: 'llm',
         label: '🤖 LLM Providers',
-        defaultHash: '#/registry/llm/global',
+        defaultHash: '#/llm/sync',
         links: [
-            { hash: '#/registry/llm/global', label: '🌐 Global' },
-            { hash: '#/registry/llm/project', label: '📁 Project' },
+            { hash: '#/llm/sync', label: '🔄 Sync' },
+            { hash: '#/llm/global', label: '🌐 Global' },
+            { hash: '#/llm/project', label: '📁 Project' },
         ],
     },
 ];
 
 function hashToSection(hash) {
-    if (hash === '#/' || hash === '') return 'dashboard';
-    if (hash.startsWith('#/registry/skills')) return 'skills';
-    if (hash.startsWith('#/registry/workflows')) return 'workflows';
-    if (hash.startsWith('#/registry/llm')) return 'llm';
-    if (hash.startsWith('#/registry')) return 'servers';
-    return 'dashboard';
+    if (hash.startsWith('#/skills')) return 'skills';
+    if (hash.startsWith('#/workflows')) return 'workflows';
+    if (hash.startsWith('#/llm')) return 'llm';
+    return 'servers'; // default
 }
 
-// Returns 'project' if the current hash is a project sub-page, otherwise 'global'
 function hashToSubScope(hash) {
     if (hash.endsWith('/project')) return 'project';
+    if (hash.endsWith('/sync')) return 'sync';
     return 'global';
 }
 
@@ -3317,47 +3402,35 @@ export default function App() {
 
     let page;
     switch (route) {
-        case '#/registry/global':
-            page = <GlobalRegistryPage addToast={addToast} />;
-            break;
-        case '#/registry/project':
-            page = <ProjectRegistryPage {...sharedProjectProps} />;
-            break;
-        case '#/registry/browse':
-            page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />;
-            break;
-        case '#/registry/skills/global':
-            page = <GlobalSkillsPage addToast={addToast} projects={projects} />;
-            break;
-        case '#/registry/skills/project':
-            page = <ProjectSkillsPage {...sharedProjectProps} />;
-            break;
-        case '#/registry/workflows/global':
-            page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />;
-            break;
-        case '#/registry/workflows/project':
-            page = <ProjectWorkflowsPage {...sharedProjectProps} />;
-            break;
-        case '#/registry/llm/global':
-            page = <GlobalLlmProvidersPage addToast={addToast} />;
-            break;
-        case '#/registry/llm/project':
-            page = <ProjectLlmProvidersPage {...sharedProjectProps} />;
-            break;
+        // MCP Servers
+        case '#/servers/sync': page = <SyncPage type="servers" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
+        case '#/servers/global': page = <GlobalRegistryPage addToast={addToast} />; break;
+        case '#/servers/project': page = <ProjectRegistryPage {...sharedProjectProps} />; break;
+        case '#/servers/browse': page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />; break;
+        // Skills
+        case '#/skills/sync': page = <SyncPage type="skills" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
+        case '#/skills/global': page = <GlobalSkillsPage addToast={addToast} projects={projects} />; break;
+        case '#/skills/project': page = <ProjectSkillsPage {...sharedProjectProps} />; break;
+        // Workflows
+        case '#/workflows/sync': page = <SyncPage type="workflows" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
+        case '#/workflows/global': page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />; break;
+        case '#/workflows/project': page = <ProjectWorkflowsPage {...sharedProjectProps} />; break;
+        // LLM Providers
+        case '#/llm/sync': page = <SyncPage type="llm" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
+        case '#/llm/global': page = <GlobalLlmProvidersPage addToast={addToast} />; break;
+        case '#/llm/project': page = <ProjectLlmProvidersPage {...sharedProjectProps} />; break;
+        // Legacy URL aliases (old routes still work)
+        case '#/registry/global': page = <GlobalRegistryPage addToast={addToast} />; break;
+        case '#/registry/project': page = <ProjectRegistryPage {...sharedProjectProps} />; break;
+        case '#/registry/browse': page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />; break;
+        case '#/registry/skills/global': page = <GlobalSkillsPage addToast={addToast} projects={projects} />; break;
+        case '#/registry/skills/project': page = <ProjectSkillsPage {...sharedProjectProps} />; break;
+        case '#/registry/workflows/global': page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />; break;
+        case '#/registry/workflows/project': page = <ProjectWorkflowsPage {...sharedProjectProps} />; break;
+        case '#/registry/llm/global': page = <GlobalLlmProvidersPage addToast={addToast} />; break;
+        case '#/registry/llm/project': page = <ProjectLlmProvidersPage {...sharedProjectProps} />; break;
         default:
-            page = (
-                <DashboardPage
-                    addToast={addToast}
-                    scope={scope}
-                    setScope={setScope}
-                    projects={projects}
-                    selectedProject={selectedProject}
-                    setSelectedProject={setSelectedProject}
-                    onAddProject={handleAddProject}
-                    onRemoveProject={handleRemoveProject}
-                />
-            );
-            break;
+            page = <SyncPage type="servers" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />;
     }
 
     return (

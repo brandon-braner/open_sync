@@ -41,8 +41,12 @@ _AIDER_CONFIG_PATH = Path("~/.aider.conf.yml")
 _CLAUDE_CODE_CONFIG_PATH = Path("~/.claude.json")
 _VSCODE_SETTINGS_PATH = Path("~/Library/Application Support/Code/User/settings.json")
 _WINDSURF_RULES_PATH = Path("~/.windsurfrules")
+_WINDSURF_WORKFLOWS_PATH = Path("~/.windsurf/workflows")
+
 _PLANDEX_HOME_PATH = Path("~/.plandex-home")
 _GEMINI_CONFIG_PATH = Path("~/.gemini/settings.json")
+_GEMINI_COMMANDS_PATH = Path("~/.gemini/commands")
+
 _AMP_CONFIG_PATH = Path("~/.amp/settings.json")
 _CURSOR_GLOBAL_RULES = Path("~/.cursor/rules")
 
@@ -54,188 +58,13 @@ _WF_END = "<!-- /OPENSYNC_WORKFLOW:{name} -->"
 # ---------------------------------------------------------------------------
 # Workflow targets metadata
 # ---------------------------------------------------------------------------
-WORKFLOW_TARGETS: list[dict[str, str]] = [
-    {
-        "id": "opencode_global",
-        "display_name": "OpenCode (global)",
-        "config_path": "~/.config/opencode/opencode.json",
-        "scope": "global",
-        "color": "#FF6B6B",
-        "native": "true",
-    },
-    {
-        "id": "continue",
-        "display_name": "Continue",
-        "config_path": "~/.continue/config.yaml",
-        "scope": "global",
-        "color": "#4ECDC4",
-        "native": "true",
-    },
-    {
-        "id": "aider",
-        "display_name": "Aider",
-        "config_path": "~/.aider.conf.yml",
-        "scope": "global",
-        "color": "#45B7D1",
-        "native": "false",
-    },
-    {
-        "id": "claude_code",
-        "display_name": "Claude Code",
-        "config_path": "~/.claude.json",
-        "scope": "global",
-        "color": "#E67E22",
-        "native": "false",
-    },
-    {
-        "id": "roo_cline",
-        "display_name": "Roo Code / Cline",
-        "config_path": "~/Library/Application Support/Code/User/settings.json",
-        "scope": "global",
-        "color": "#9B59B6",
-        "native": "false",
-    },
-    {
-        "id": "windsurf",
-        "display_name": "Windsurf",
-        "config_path": "~/.windsurfrules",
-        "scope": "global",
-        "color": "#1ABC9C",
-        "native": "false",
-    },
-    {
-        "id": "plandex",
-        "display_name": "Plandex",
-        "config_path": "~/.plandex-home/",
-        "scope": "global",
-        "color": "#F39C12",
-        "native": "false",
-    },
-    {
-        "id": "gemini_cli",
-        "display_name": "Gemini CLI",
-        "config_path": "~/.gemini/settings.json",
-        "scope": "global",
-        "color": "#3498DB",
-        "native": "false",
-    },
-    {
-        "id": "amp",
-        "display_name": "Amp (Sourcegraph)",
-        "config_path": "~/.amp/settings.json",
-        "scope": "global",
-        "color": "#E74C3C",
-        "native": "false",
-    },
-    {
-        "id": "cursor_global",
-        "display_name": "Cursor (global rules)",
-        "config_path": "~/.cursor/rules/",
-        "scope": "global",
-        "color": "#95A5A6",
-        "native": "false",
-    },
-    {
-        "id": "opencode_project",
-        "display_name": "OpenCode (project)",
-        "config_path": "<project>/opencode.json",
-        "scope": "project",
-        "color": "#FF6B6B",
-        "native": "true",
-    },
-    {
-        "id": "cursor_project",
-        "display_name": "Cursor (project rules)",
-        "config_path": "<project>/.cursor/rules/",
-        "scope": "project",
-        "color": "#95A5A6",
-        "native": "false",
-    },
-    {
-        "id": "continue_project",
-        "display_name": "Continue (project)",
-        "config_path": "<project>/.continue/config.yaml",
-        "scope": "project",
-        "color": "#4ECDC4",
-        "native": "true",
-    },
-    {
-        "id": "aider_project",
-        "display_name": "Aider (project)",
-        "config_path": "<project>/.aider.conf.yml",
-        "scope": "project",
-        "color": "#45B7D1",
-        "native": "false",
-    },
-    {
-        "id": "claude_code_project",
-        "display_name": "Claude Code (project)",
-        "config_path": "<project>/.claude/settings.json",
-        "scope": "project",
-        "color": "#E67E22",
-        "native": "false",
-    },
-    {
-        "id": "roo_cline_project",
-        "display_name": "Roo Code / Cline (project)",
-        "config_path": "<project>/.vscode/settings.json",
-        "scope": "project",
-        "color": "#9B59B6",
-        "native": "false",
-    },
-    {
-        "id": "windsurf_project",
-        "display_name": "Windsurf (project)",
-        "config_path": "<project>/.windsurfrules",
-        "scope": "project",
-        "color": "#1ABC9C",
-        "native": "false",
-    },
-    {
-        "id": "plandex_project",
-        "display_name": "Plandex (project)",
-        "config_path": "<project>/.plandex/",
-        "scope": "project",
-        "color": "#F39C12",
-        "native": "false",
-    },
-    {
-        "id": "amp_project",
-        "display_name": "Amp (project)",
-        "config_path": "<project>/.amp/settings.json",
-        "scope": "project",
-        "color": "#E74C3C",
-        "native": "false",
-    },
-    {
-        "id": "gemini_cli_project",
-        "display_name": "Gemini CLI (project)",
-        "config_path": "<project>/.gemini/settings.json",
-        "scope": "project",
-        "color": "#3498DB",
-        "native": "false",
-    },
-    {
-        "id": "antigravity_global",
-        "display_name": "Antigravity (global)",
-        "config_path": "~/.agent/workflows/",
-        "scope": "global",
-        "color": "#6C3483",
-        "native": "false",
-    },
-    {
-        "id": "antigravity_project",
-        "display_name": "Antigravity (project)",
-        "config_path": "<project>/.agent/workflows/",
-        "scope": "project",
-        "color": "#6C3483",
-        "native": "false",
-    },
-]
+from unified_targets import get_workflow_targets as _get_workflow_targets
+
+WORKFLOW_TARGETS: list[dict] = _get_workflow_targets()
 
 
-def list_workflow_targets() -> list[dict[str, str]]:
-    return sorted(WORKFLOW_TARGETS, key=lambda t: t["display_name"].lower())
+def list_workflow_targets() -> list[dict]:
+    return _get_workflow_targets()
 
 
 # ---------------------------------------------------------------------------
@@ -636,34 +465,66 @@ def _write_workflow_to_roo_cline(
 
 
 # ---------------------------------------------------------------------------
-# Windsurf  (embedded block in .windsurfrules)
+# Windsurf  (.windsurf/workflows/*.md)
 # ---------------------------------------------------------------------------
 
 
-def _discover_windsurf(rules_path: Path | None = None) -> list[Workflow]:
-    path = (rules_path or _WINDSURF_RULES_PATH).expanduser()
-    text = _read_text(path)
-    wfs = _extract_workflow_blocks(text)
-    for w in wfs:
-        w.sources = ["windsurf"]
-    return wfs
+def _discover_windsurf(workflows_dir: Path | None = None) -> list[Workflow]:
+    """Discover workflows from Windsurf native .windsurf/workflows/ directory."""
+    base = (workflows_dir or _WINDSURF_WORKFLOWS_PATH).expanduser()
+    if not base.is_dir():
+        return []
+    workflows: list[Workflow] = []
+    for md_file in sorted(base.glob("*.md")):
+        try:
+            text = md_file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # Strip optional YAML frontmatter
+        name = md_file.stem.replace("-", " ")
+        description = None
+        content = text
+        if text.startswith("---"):
+            parts = text.split("---", 2)
+            if len(parts) >= 3:
+                fm = parts[1]
+                body = parts[2].strip()
+                for line in fm.splitlines():
+                    if line.startswith("description:"):
+                        description = line[12:].strip() or None
+                content = body
+        w = Workflow(
+            name=name,
+            description=description,
+            content=content,
+            sources=["windsurf"],
+        )
+        workflows.append(w)
+    return workflows
 
 
 def _write_workflow_to_windsurf(
-    workflow: Workflow, rules_path: Path | None = None
+    workflow: Workflow, workflows_dir: Path | None = None
 ) -> dict[str, Any]:
-    path = (rules_path or _WINDSURF_RULES_PATH).expanduser()
+    """Write a workflow as a .md file into the Windsurf .windsurf/workflows/ directory."""
+    base = (workflows_dir or _WINDSURF_WORKFLOWS_PATH).expanduser()
     try:
-        existing = _read_text(path)
-        _write_text(path, _inject_workflow_block(existing, workflow))
+        base.mkdir(parents=True, exist_ok=True)
+        safe_name = workflow.name.lower().replace(" ", "-")
+        wf_file = base / f"{safe_name}.md"
+        lines = []
+        if workflow.description:
+            lines.append(f"---\ndescription: {workflow.description}\n---\n")
+        lines.append(workflow.content or "")
+        wf_file.write_text("\n".join(lines), encoding="utf-8")
         return {
             "success": True,
-            "message": f"Workflow '{workflow.name}' embedded in {path.name}",
+            "message": f"Workflow '{workflow.name}' written to Windsurf: {wf_file}",
         }
     except Exception as exc:
         return {
             "success": False,
-            "message": f"Failed to write workflow to Windsurf: {exc}",
+            "message": f"Failed to write Windsurf workflow: {exc}",
         }
 
 
@@ -716,33 +577,62 @@ def _write_workflow_to_plandex(
 # ---------------------------------------------------------------------------
 
 
-def _discover_gemini_cli(config_path: Path | None = None) -> list[Workflow]:
-    path = (config_path or _GEMINI_CONFIG_PATH).expanduser()
-    data = _read_json(path)
-    prompt = data.get("systemPrompt", "")
-    wfs = _extract_workflow_blocks(prompt)
-    for w in wfs:
-        w.sources = ["gemini_cli"]
-    return wfs
+def _discover_gemini_cli(commands_dir: Path | None = None) -> list[Workflow]:
+    """Discover workflows from Gemini CLI custom command TOML files."""
+    import tomllib  # stdlib in Python 3.11+
+
+    base = (commands_dir or _GEMINI_COMMANDS_PATH).expanduser()
+    if not base.is_dir():
+        return []
+    workflows: list[Workflow] = []
+    for toml_file in sorted(base.glob("*.toml")):
+        try:
+            data = tomllib.loads(toml_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        prompt = data.get("prompt", "").strip()
+        if not prompt:
+            continue
+        name = toml_file.stem  # filename without .toml
+        description = data.get("description", "")
+        w = Workflow(
+            name=name,
+            description=description or None,
+            content=prompt,
+            sources=["gemini_cli"],
+        )
+        workflows.append(w)
+    return workflows
 
 
 def _write_workflow_to_gemini_cli(
-    workflow: Workflow, config_path: Path | None = None
+    workflow: Workflow, commands_dir: Path | None = None
 ) -> dict[str, Any]:
-    path = (config_path or _GEMINI_CONFIG_PATH).expanduser()
+    """Write a workflow as a Gemini CLI custom command TOML file."""
+    base = (commands_dir or _GEMINI_COMMANDS_PATH).expanduser()
     try:
-        data = _read_json(path)
-        existing = data.get("systemPrompt", "")
-        data["systemPrompt"] = _inject_workflow_block(existing, workflow)
-        _write_json(path, data)
+        base.mkdir(parents=True, exist_ok=True)
+        # Sanitise name: lowercase, replace spaces/special chars with hyphens
+        safe_name = workflow.name.lower().replace(" ", "-")
+        toml_path = base / f"{safe_name}.toml"
+        lines = []
+        if workflow.description:
+            # Escape any quotes in the description
+            desc = workflow.description.replace('"', '\\"')
+            lines.append(f'description = "{desc}"')
+        # Use multi-line literal string for the prompt to avoid escaping issues
+        prompt = workflow.content or ""
+        lines.extend(["prompt = '''", prompt, "'''"])
+
+        toml_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return {
             "success": True,
-            "message": f"Workflow '{workflow.name}' embedded in Gemini CLI systemPrompt",
+            "message": f"Workflow '{workflow.name}' written to Gemini CLI custom command: {toml_path}",
         }
     except Exception as exc:
         return {
             "success": False,
-            "message": f"Failed to write workflow to Gemini CLI: {exc}",
+            "message": f"Failed to write Gemini CLI custom command: {exc}",
         }
 
 
@@ -841,7 +731,7 @@ def _write_workflow_to_cursor(
 
 
 # ---------------------------------------------------------------------------
-# Antigravity  (.agent/workflows/*.md)
+# Antigravity  (.agents/workflows/*.md)
 # ---------------------------------------------------------------------------
 
 
@@ -851,16 +741,16 @@ def _write_workflow_to_antigravity(
     project_path: str | None = None,
     target_id: str = "antigravity_global",
 ) -> dict[str, Any]:
-    """Write workflow as a .md file into the Antigravity .agent/workflows/ directory."""
+    """Write workflow as a .md file into the Antigravity .agents/workflows/ directory."""
     if target_id == "antigravity_project":
         if not project_path:
             return {
                 "success": False,
                 "message": "project_path is required for antigravity_project target",
             }
-        base = Path(project_path).expanduser() / ".agent" / "workflows"
+        base = Path(project_path).expanduser() / ".agents" / "workflows"
     else:
-        base = (workflows_dir or Path("~/.agent/workflows")).expanduser()
+        base = (workflows_dir or Path("~/.agents/workflows")).expanduser()
     try:
         base.mkdir(parents=True, exist_ok=True)
         slug = workflow.name.lower().replace(" ", "-").replace("/", "-")
@@ -881,13 +771,56 @@ def _write_workflow_to_antigravity(
         }
 
 
+def _discover_antigravity_workflows(
+    workflows_dir: Path | None = None,
+) -> list[Workflow]:
+    """Discover workflows from Antigravity .agents/workflows/ directory."""
+    base = (workflows_dir or Path("~/.agents/workflows")).expanduser()
+    if not base.is_dir():
+        return []
+    workflows: list[Workflow] = []
+    for md_file in sorted(base.glob("*.md")):
+        try:
+            text = md_file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        # Parse optional frontmatter
+        name = md_file.stem.replace("-", " ")
+        description = None
+        content = text
+        if text.startswith("---"):
+            parts = text.split("---", 2)
+            if len(parts) >= 3:
+                fm = parts[1]
+                body = parts[2].strip()
+                for line in fm.splitlines():
+                    if line.startswith("name:"):
+                        name = line[5:].strip()
+                    elif line.startswith("description:"):
+                        description = line[12:].strip() or None
+                content = body
+        w = Workflow(
+            name=name,
+            description=description,
+            content=content,
+            sources=["antigravity_global"],
+        )
+        workflows.append(w)
+    return workflows
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 
-def discover_all_workflows() -> list[Workflow]:
-    """Discover workflows from every supported agent config."""
+def discover_all_workflows(project_path: str | None = None) -> list[Workflow]:
+    """Discover workflows from every supported agent config.
+
+    If *project_path* is provided, project-scoped configs are also scanned and
+    the returned items will include sources like 'continue_project',
+    'claude_code_project', etc. so that source pills can be shown correctly.
+    """
     workflows: list[Workflow] = []
     workflows.extend(_discover_opencode_global())
     workflows.extend(_discover_continue())
@@ -899,6 +832,63 @@ def discover_all_workflows() -> list[Workflow]:
     workflows.extend(_discover_gemini_cli())
     workflows.extend(_discover_amp())
     workflows.extend(_discover_cursor())
+    workflows.extend(_discover_antigravity_workflows())
+
+    if project_path:
+        pp = Path(project_path).expanduser()
+        _tag = lambda wfs, src: [setattr(w, "sources", [src]) or w for w in wfs]  # noqa: E731
+
+        workflows.extend(
+            _tag(
+                _discover_opencode_global(config_path=pp / "opencode.json"),
+                "opencode_project",
+            )
+        )
+        workflows.extend(
+            _tag(
+                _discover_continue(config_path=pp / ".continue" / "config.yaml"),
+                "continue_project",
+            )
+        )
+        workflows.extend(
+            _tag(_discover_aider(config_path=pp / ".aider.conf.yml"), "aider_project")
+        )
+        workflows.extend(
+            _tag(
+                _discover_claude_code(config_path=pp / ".claude" / "settings.json"),
+                "claude_code_project",
+            )
+        )
+        workflows.extend(
+            _tag(
+                _discover_roo_cline(config_path=pp / ".vscode" / "settings.json"),
+                "roo_cline_project",
+            )
+        )
+        workflows.extend(
+            _tag(
+                _discover_windsurf(workflows_dir=pp / ".windsurf" / "workflows"),
+                "windsurf_project",
+            )
+        )
+        workflows.extend(
+            _tag(
+                _discover_gemini_cli(commands_dir=pp / ".gemini" / "commands"),
+                "gemini_cli_project",
+            )
+        )
+        workflows.extend(
+            _tag(_discover_cursor(rules_dir=pp / ".cursor" / "rules"), "cursor_project")
+        )
+        workflows.extend(
+            _tag(
+                _discover_antigravity_workflows(
+                    workflows_dir=pp / ".agents" / "workflows"
+                ),
+                "antigravity_project",
+            )
+        )
+
     return workflows
 
 
@@ -957,7 +947,7 @@ def write_workflow_to_target(
                 "message": "project_path is required for windsurf_project target",
             }
         return _write_workflow_to_windsurf(
-            workflow, rules_path=Path(project_path) / ".windsurfrules"
+            workflow, workflows_dir=Path(project_path) / ".windsurf" / "workflows"
         )
     if target_id == "gemini_cli_project":
         if not project_path:
@@ -966,7 +956,7 @@ def write_workflow_to_target(
                 "message": "project_path is required for gemini_cli_project target",
             }
         return _write_workflow_to_gemini_cli(
-            workflow, config_path=Path(project_path) / ".gemini" / "settings.json"
+            workflow, commands_dir=Path(project_path) / ".gemini" / "commands"
         )
     if target_id == "aider":
         return _write_workflow_to_aider(workflow)

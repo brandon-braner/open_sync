@@ -167,6 +167,18 @@ export const api = {
         }),
 
     // LLM Providers
+    discoverSkills: (projectPath = null) => {
+        const params = new URLSearchParams();
+        if (projectPath) params.set('project_path', projectPath);
+        const qs = params.toString();
+        return request(`/api/registry/skills/discover${qs ? '?' + qs : ''}`);
+    },
+    discoverWorkflows: (projectPath = null) => {
+        const params = new URLSearchParams();
+        if (projectPath) params.set('project_path', projectPath);
+        const qs = params.toString();
+        return request(`/api/registry/workflows/discover${qs ? '?' + qs : ''}`);
+    },
     discoverLlmProviders: () => request('/api/registry/llm-providers/discover'),
 
 

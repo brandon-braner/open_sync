@@ -8,6 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    import yaml as _yaml
+
+    _YAML_OK = True
+except ImportError:
+    _YAML_OK = False
+
 from config_targets import (
     FormatType,
     Scope,
@@ -39,6 +46,40 @@ def _write_json(path: str, data: dict[str, Any]) -> None:
     with open(p, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
         f.write("\n")
+
+
+def _read_yaml(path: str) -> dict[str, Any]:
+    """Read a YAML file, returning {} if missing, empty, or PyYAML unavailable."""
+    if not _YAML_OK:
+        return {}
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return {}
+    with open(p, "r", encoding="utf-8") as f:
+        return _yaml.safe_load(f) or {}
+
+
+def _write_yaml(path: str, data: dict[str, Any]) -> None:
+    """Write data as YAML, creating parent dirs if needed."""
+    if not _YAML_OK:
+        raise RuntimeError("PyYAML is not installed; cannot write YAML config")
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        _yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+
+
+def _read_config(path: str, is_yaml: bool) -> dict[str, Any]:
+    """Read JSON or YAML depending on flag."""
+    return _read_yaml(path) if is_yaml else _read_json(path)
+
+
+def _write_config(path: str, data: dict[str, Any], is_yaml: bool) -> None:
+    """Write JSON or YAML depending on flag."""
+    if is_yaml:
+        _write_yaml(path, data)
+    else:
+        _write_json(path, data)
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +205,8 @@ def read_target_servers(
 ) -> dict[str, McpServer]:
     """Read all MCP servers from a single target config file."""
     path = _resolve_path(target, project_dir)
-    data = _read_json(path)
+    is_yaml = target.format_type == FormatType.YAML
+    data = _read_config(path, is_yaml)
     raw_servers: dict[str, Any] = data.get(target.root_key, {})
     return {
         name: _to_canonical(name, entry, target)
@@ -219,18 +261,19 @@ def write_servers_to_target(
 ) -> SyncResult:
     """Write (merge) the given servers into a target's config file."""
     path = _resolve_path(target, project_dir)
+    is_yaml = target.format_type == FormatType.YAML
 
     try:
         if create_backup:
             backup_config(target, project_dir)
 
-        existing = _read_json(path)
+        existing = _read_config(path, is_yaml)
         server_entries: dict[str, Any] = existing.get(target.root_key, {})
         for srv in servers:
             server_entries[srv.name] = _from_canonical(srv, target)
 
         existing[target.root_key] = server_entries
-        _write_json(path, existing)
+        _write_config(path, existing, is_yaml)
 
         return SyncResult(
             target=target.name,
@@ -251,8 +294,9 @@ def remove_server_from_target(
 ) -> SyncResult:
     """Remove a single server from a target config."""
     path = _resolve_path(target, project_dir)
+    is_yaml = target.format_type == FormatType.YAML
     try:
-        data = _read_json(path)
+        data = _read_config(path, is_yaml)
         servers = data.get(target.root_key, {})
         if server_name not in servers:
             return SyncResult(
@@ -262,7 +306,7 @@ def remove_server_from_target(
             )
         del servers[server_name]
         data[target.root_key] = servers
-        _write_json(path, data)
+        _write_config(path, data, is_yaml)
         return SyncResult(
             target=target.name,
             success=True,
@@ -284,8 +328,9 @@ def rename_server_in_target(
 ) -> SyncResult:
     """Rename a server key in a target config file."""
     path = _resolve_path(target, project_dir)
+    is_yaml = target.format_type == FormatType.YAML
     try:
-        data = _read_json(path)
+        data = _read_config(path, is_yaml)
         servers = data.get(target.root_key, {})
         if old_name not in servers:
             return SyncResult(
@@ -296,7 +341,7 @@ def rename_server_in_target(
         entry = servers.pop(old_name)
         servers[new_name] = entry
         data[target.root_key] = servers
-        _write_json(path, data)
+        _write_config(path, data, is_yaml)
         return SyncResult(
             target=target.name,
             success=True,

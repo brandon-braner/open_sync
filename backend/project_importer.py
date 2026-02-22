@@ -1,7 +1,7 @@
 """project_importer.py – scan a project directory for agent artifacts.
 
 Discovers skills and workflows from all known agent/IDE config formats:
-  - Antigravity  .agent/workflows/*.md, .agent/skills/*.md, .agent/rules/*.md
+  - Antigravity  .agents/workflows/*.md, .agents/skills/*.md, .agents/rules/*.md
   - Cursor       .cursor/rules/*.mdc
   - Claude Code  CLAUDE.md
   - GitHub Copilot .github/copilot-instructions.md
@@ -114,9 +114,9 @@ def _workflow_steps_from_markdown(body: str) -> list[str]:
 
 
 def _scan_antigravity(root: Path) -> list[dict]:
-    """Scan .agent/workflows/, .agent/skills/, .agent/rules/ directories."""
+    """Scan .agents/workflows/, .agents/skills/, .agents/rules/ directories."""
     results: list[dict] = []
-    agent_dir = root / ".agent"
+    agent_dir = root / ".agents"
     if not agent_dir.is_dir():
         return results
 
@@ -132,7 +132,7 @@ def _scan_antigravity(root: Path) -> list[dict]:
             _make_artifact(
                 name=name,
                 artifact_type="workflow",
-                source="Antigravity (.agent/workflows)",
+                source="Antigravity (.agents/workflows)",
                 description=desc,
                 content=body,
                 file_path=str(f),
@@ -141,8 +141,8 @@ def _scan_antigravity(root: Path) -> list[dict]:
 
     # Skills + Rules (both map to skills — they're instruction content)
     for subdir, label in [
-        ("skills", "Antigravity (.agent/skills)"),
-        ("rules", "Antigravity (.agent/rules)"),
+        ("skills", "Antigravity (.agents/skills)"),
+        ("rules", "Antigravity (.agents/rules)"),
     ]:
         for f in sorted((agent_dir / subdir).glob("*.md")):
             if f.is_symlink() and not f.exists():

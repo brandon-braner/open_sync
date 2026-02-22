@@ -29,6 +29,8 @@ frontend/dist/
 .antigravity
 opencode.json
 .agent
+.agents
+.gemini
 
 # Logs & output
 logs/

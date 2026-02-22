@@ -808,9 +808,9 @@ def import_provider_from_global(req: _ImportProviderRequest):
 
 
 @router.get("/registry/skills/discover")
-def discover_skills_from_configs():
-    """Discover skills from global AI tool config files."""
-    return skill_discovery.discover_all_skills()
+def discover_skills_from_configs(project_path: Optional[str] = None):
+    """Discover skills from global AI tool config files (and optionally a project)."""
+    return skill_discovery.discover_all_skills(project_path=project_path)
 
 
 @router.get("/registry/skills/targets")
@@ -847,9 +847,9 @@ def sync_skill_to_targets(req: _SyncSkillRequest):
 
 
 @router.get("/registry/workflows/discover")
-def discover_workflows_from_configs():
-    """Discover workflows from global AI tool config files."""
-    return workflow_discovery.discover_all_workflows()
+def discover_workflows_from_configs(project_path: Optional[str] = None):
+    """Discover workflows from global AI tool config files (and optionally a project)."""
+    return workflow_discovery.discover_all_workflows(project_path=project_path)
 
 
 @router.get("/registry/workflows/targets")
