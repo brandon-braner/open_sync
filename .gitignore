@@ -8,6 +8,7 @@ backend/uv.lock
 opensync.db
 opensync.db-wal
 opensync.db-shm
+.pytest_cache/
 
 # User-specific config
 dce.ini
@@ -27,6 +28,10 @@ frontend/dist/
 # AI Agent
 .roo
 .antigravity
+opencode.json
+.agent
+.agents
+.gemini
 
 # Logs & output
 logs/
@@ -34,3 +39,4 @@ output/
 
 # OS
 .DS_Store
+

@@ -3,6 +3,8 @@
 Each target can exist in two scopes:
 - global: system-wide config (fixed path in ~ or Application Support)
 - project: per-project config (relative path resolved against a project dir)
+
+Target lists are derived from unified_targets.TOOLS — do not add entries here.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ class FormatType(str, Enum):
     STANDARD = "standard"  # { command: str, args: [], env: {} }
     OPENCODE = "opencode"  # { type: "local", command: [...], environment: {} }
     VSCODE = "vscode"  # same as standard but root key is "servers" and type field used
+    YAML = "yaml"  # YAML config file (e.g. Continue config.yaml)
 
 
 class Scope(str, Enum):
@@ -60,253 +63,33 @@ class TargetConfig:
 
 
 # ---------------------------------------------------------------------------
-# Global targets
+# Derived target lists  (built from unified_targets.TOOLS)
 # ---------------------------------------------------------------------------
+
+from unified_targets import get_mcp_target_dicts  # noqa: E402
+
+
+def _build_target(d: dict) -> TargetConfig:
+    return TargetConfig(
+        name=d["name"],
+        display_name=d["display_name"],
+        config_path=d["config_path"],
+        root_key=d["root_key"],
+        scope=Scope(d["scope"]),
+        format_type=FormatType(d.get("format_type", "standard")),
+        color=d.get("color", "#888888"),
+        nested=d.get("nested", False),
+        base_target=d.get("base_target", ""),
+        category=Category(d.get("category", "editor")),
+    )
+
 
 GLOBAL_TARGETS: list[TargetConfig] = [
-    TargetConfig(
-        name="claude_desktop_global",
-        display_name="Claude Desktop",
-        config_path="~/Library/Application Support/Claude/claude_desktop_config.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#D97757",
-        base_target="claude_desktop",
-        category=Category.DESKTOP,
-    ),
-    TargetConfig(
-        name="claude_code_global",
-        display_name="Claude Code",
-        config_path="~/.claude.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#D97757",
-        base_target="claude_code",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="antigravity_global",
-        display_name="Antigravity",
-        config_path="~/.gemini/antigravity/mcp_config.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#4285F4",
-        base_target="antigravity",
-    ),
-    TargetConfig(
-        name="vscode_global",
-        display_name="VS Code",
-        config_path="~/Library/Application Support/Code/User/mcp.json",
-        root_key="servers",
-        format_type=FormatType.VSCODE,
-        scope=Scope.GLOBAL,
-        color="#007ACC",
-        base_target="vscode",
-    ),
-    TargetConfig(
-        name="cursor_global",
-        display_name="Cursor",
-        config_path="~/.cursor/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#00D4AA",
-        base_target="cursor",
-    ),
-    TargetConfig(
-        name="gemini_cli_global",
-        display_name="Gemini CLI",
-        config_path="~/.gemini/settings.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#0F9D58",
-        nested=True,
-        base_target="gemini_cli",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="opencode_global",
-        display_name="OpenCode",
-        config_path="~/.config/opencode/opencode.json",
-        root_key="mcp",
-        format_type=FormatType.OPENCODE,
-        scope=Scope.GLOBAL,
-        color="#FF6B6B",
-        nested=True,
-        base_target="opencode",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="copilot_cli_global",
-        display_name="GitHub Copilot CLI",
-        config_path="~/.copilot/mcp-config.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#6E40C9",
-        base_target="copilot_cli",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="jetbrains_global",
-        display_name="JetBrains (Copilot)",
-        config_path="~/.config/github-copilot/intellij/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#FC801D",
-        base_target="jetbrains",
-    ),
-    # ---- VS Code extension plugins ----
-    TargetConfig(
-        name="cline_vscode_global",
-        display_name="Cline (VS Code)",
-        config_path="~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#E8912D",
-        base_target="cline_vscode",
-        category=Category.PLUGIN,
-    ),
-    TargetConfig(
-        name="roocode_vscode_global",
-        display_name="Roo Code (VS Code)",
-        config_path="~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#00C853",
-        base_target="roocode_vscode",
-        category=Category.PLUGIN,
-    ),
-    TargetConfig(
-        name="roocode_antigravity_global",
-        display_name="Roo Code (Antigravity)",
-        config_path="~/Library/Application Support/Antigravity/User/globalStorage/rooveterinaryinc.roo-cline/settings/cline_mcp_settings.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#00C853",
-        base_target="roocode_antigravity",
-        category=Category.PLUGIN,
-    ),
-    TargetConfig(
-        name="kilocode_vscode_global",
-        display_name="Kilo Code (VS Code)",
-        config_path="~/Library/Application Support/Code/User/globalStorage/kilocode.kilo-code/settings/cline_mcp_settings.json",
-        root_key="mcpServers",
-        scope=Scope.GLOBAL,
-        color="#FF4081",
-        base_target="kilocode_vscode",
-        category=Category.PLUGIN,
-    ),
+    _build_target(d) for d in get_mcp_target_dicts("global")
 ]
-
-# ---------------------------------------------------------------------------
-# Project targets (only targets that support project-level configs)
-# ---------------------------------------------------------------------------
-
 PROJECT_TARGETS: list[TargetConfig] = [
-    TargetConfig(
-        name="claude_code_project",
-        display_name="Claude Code",
-        config_path=".mcp.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#D97757",
-        base_target="claude_code",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="antigravity_project",
-        display_name="Antigravity",
-        config_path=".antigravity/mcp_config.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#4285F4",
-        base_target="antigravity",
-    ),
-    TargetConfig(
-        name="vscode_project",
-        display_name="VS Code",
-        config_path=".vscode/mcp.json",
-        root_key="servers",
-        format_type=FormatType.VSCODE,
-        scope=Scope.PROJECT,
-        color="#007ACC",
-        base_target="vscode",
-    ),
-    TargetConfig(
-        name="cursor_project",
-        display_name="Cursor",
-        config_path=".cursor/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#00D4AA",
-        base_target="cursor",
-    ),
-    TargetConfig(
-        name="gemini_cli_project",
-        display_name="Gemini CLI",
-        config_path=".gemini/settings.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#0F9D58",
-        nested=True,
-        base_target="gemini_cli",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="opencode_project",
-        display_name="OpenCode",
-        config_path="opencode.json",
-        root_key="mcp",
-        format_type=FormatType.OPENCODE,
-        scope=Scope.PROJECT,
-        color="#FF6B6B",
-        nested=True,
-        base_target="opencode",
-        category=Category.CLI,
-    ),
-    TargetConfig(
-        name="copilot_cli_project",
-        display_name="GitHub Copilot CLI",
-        config_path=".copilot/mcp-config.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#6E40C9",
-        base_target="copilot_cli",
-        category=Category.CLI,
-    ),
-    # ---- VS Code extension plugins (project-level) ----
-    TargetConfig(
-        name="roocode_vscode_project",
-        display_name="Roo Code (VS Code)",
-        config_path=".roo/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#00C853",
-        base_target="roocode_vscode",
-        category=Category.PLUGIN,
-    ),
-    TargetConfig(
-        name="roocode_antigravity_project",
-        display_name="Roo Code (Antigravity)",
-        config_path=".roo/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#00C853",
-        base_target="roocode_antigravity",
-        category=Category.PLUGIN,
-    ),
-    TargetConfig(
-        name="kilocode_vscode_project",
-        display_name="Kilo Code (VS Code)",
-        config_path=".kilocode/mcp.json",
-        root_key="mcpServers",
-        scope=Scope.PROJECT,
-        color="#FF4081",
-        base_target="kilocode_vscode",
-        category=Category.PLUGIN,
-    ),
+    _build_target(d) for d in get_mcp_target_dicts("project")
 ]
-
-# Combined list for convenience
 ALL_TARGETS: list[TargetConfig] = GLOBAL_TARGETS + PROJECT_TARGETS
 
 

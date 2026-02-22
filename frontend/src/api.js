@@ -81,6 +81,141 @@ export const api = {
             body: JSON.stringify({ server_name: serverName, project_name: projectName }),
         }),
 
+    // Skills
+    getSkills: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/skills?${params}`);
+    },
+
+    addSkill: (data) =>
+        request('/api/registry/skills', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeSkill: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/skills/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    importSkillFromGlobal: (skillId, projectName) =>
+        request('/api/registry/skills/import', {
+            method: 'POST',
+            body: JSON.stringify({ skill_id: skillId, project_name: projectName }),
+        }),
+
+    // Workflows
+    getWorkflows: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/workflows?${params}`);
+    },
+
+    addWorkflow: (data) =>
+        request('/api/registry/workflows', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeWorkflow: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/workflows/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    importWorkflowFromGlobal: (workflowId, projectName) =>
+        request('/api/registry/workflows/import', {
+            method: 'POST',
+            body: JSON.stringify({ workflow_id: workflowId, project_name: projectName }),
+        }),
+
+    // Skills sync
+    getSkillTargets: () => request('/api/registry/skills/targets'),
+
+    syncSkill: (skillId, targetIds, projectPath = null) =>
+        request('/api/registry/skills/sync', {
+            method: 'POST',
+            body: JSON.stringify({ skill_id: skillId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
+    // Workflows sync
+    getWorkflowTargets: () => request('/api/registry/workflows/targets'),
+
+    syncWorkflow: (workflowId, targetIds, projectPath = null) =>
+        request('/api/registry/workflows/sync', {
+            method: 'POST',
+            body: JSON.stringify({ workflow_id: workflowId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
+    // Import from project directory
+    scanProjectImport: (projectPath) =>
+        request('/api/registry/import-from-project/scan', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: projectPath }),
+        }),
+
+    commitProjectImport: (items, scope = 'global', projectName = null) =>
+        request('/api/registry/import-from-project/commit', {
+            method: 'POST',
+            body: JSON.stringify({ items, scope, project_name: projectName }),
+        }),
+
+    // LLM Providers
+    discoverSkills: (projectPath = null) => {
+        const params = new URLSearchParams();
+        if (projectPath) params.set('project_path', projectPath);
+        const qs = params.toString();
+        return request(`/api/registry/skills/discover${qs ? '?' + qs : ''}`);
+    },
+    discoverWorkflows: (projectPath = null) => {
+        const params = new URLSearchParams();
+        if (projectPath) params.set('project_path', projectPath);
+        const qs = params.toString();
+        return request(`/api/registry/workflows/discover${qs ? '?' + qs : ''}`);
+    },
+    discoverLlmProviders: () => request('/api/registry/llm-providers/discover'),
+
+
+    getLlmProviderTargets: () => request('/api/registry/llm-providers/targets'),
+
+    syncLlmProvider: (providerId, targetIds, projectPath = null) =>
+        request('/api/registry/llm-providers/sync', {
+            method: 'POST',
+            body: JSON.stringify({ provider_id: providerId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
+    getLlmProviders: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/llm-providers?${params}`);
+    },
+
+    addLlmProvider: (data) =>
+        request('/api/registry/llm-providers', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeLlmProvider: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/llm-providers/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    importLlmProviderFromGlobal: (providerId, projectName) =>
+        request('/api/registry/llm-providers/import', {
+            method: 'POST',
+            body: JSON.stringify({ provider_id: providerId, project_name: projectName }),
+        }),
+
     // Projects
     getProjects: () => request('/api/projects'),
 

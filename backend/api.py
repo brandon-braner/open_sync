@@ -6,11 +6,19 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+import pydantic
 import httpx
 
 import mcp_registry_client
 import project_registry
 import server_registry
+import skill_registry
+import workflow_registry
+import llm_provider_registry
+import llm_provider_discovery
+import skill_discovery
+import workflow_discovery
+import project_importer
 from config_manager import (
     discover_all_servers,
     read_target_servers,
@@ -29,6 +37,9 @@ from models import (
     SyncResponse,
     TargetStatus,
     UpdateServerRequest,
+    Skill,
+    Workflow,
+    LlmProvider,
 )
 
 router = APIRouter(prefix="/api")
@@ -587,3 +598,327 @@ def remove_server(
         r = remove_server_from_target(target, server_name, pdir)
         results.append(r.model_dump())
     return {"results": results}
+
+
+# ---- Skills ----------------------------------------------------------------
+
+
+@router.get("/registry/skills", response_model=list[Skill])
+def list_registry_skills(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return skill_registry.list_skills(scope, project_name)
+
+
+@router.post("/registry/skills", response_model=Skill)
+def add_registry_skill(req: dict):
+    s = Skill(
+        name=req.get("name"),
+        description=req.get("description"),
+        content=req.get("content", ""),
+        sources=[],
+    )
+    return skill_registry.add_skill(
+        s, req.get("scope", "global"), req.get("project_name")
+    )
+
+
+@router.delete("/registry/skills/{skill_id}")
+def remove_registry_skill(
+    skill_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = skill_registry.get_skill_by_id(skill_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    skill_registry.remove_skill(existing.name, scope, project_name)
+    return {"message": "Skill removed"}
+
+
+class _ImportSkillRequest(pydantic.BaseModel):
+    skill_id: str
+    project_name: str
+
+
+@router.post("/registry/skills/import", response_model=Skill)
+def import_skill_from_global(req: _ImportSkillRequest):
+    """Copy a skill from the global registry into a project's registry."""
+    global_skill = skill_registry.get_skill_by_id(req.skill_id)
+    if global_skill is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Skill '{req.skill_id}' not found in global registry",
+        )
+    global_skill.id = None  # fresh UUID for the project copy
+    return skill_registry.add_skill(global_skill, "project", req.project_name)
+
+
+# ---- Workflows -------------------------------------------------------------
+
+
+@router.get("/registry/workflows", response_model=list[Workflow])
+def list_registry_workflows(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return workflow_registry.list_workflows(scope, project_name)
+
+
+@router.post("/registry/workflows", response_model=Workflow)
+def add_registry_workflow(req: dict):
+    w = Workflow(
+        name=req.get("name"),
+        description=req.get("description"),
+        content=req.get("content"),
+        sources=[],
+    )
+    return workflow_registry.add_workflow(
+        w, req.get("scope", "global"), req.get("project_name")
+    )
+
+
+@router.delete("/registry/workflows/{workflow_id}")
+def remove_registry_workflow(
+    workflow_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = workflow_registry.get_workflow_by_id(workflow_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow_registry.remove_workflow(existing.name, scope, project_name)
+    return {"message": "Workflow removed"}
+
+
+class _ImportWorkflowRequest(pydantic.BaseModel):
+    workflow_id: str
+    project_name: str
+
+
+@router.post("/registry/workflows/import", response_model=Workflow)
+def import_workflow_from_global(req: _ImportWorkflowRequest):
+    """Copy a workflow from the global registry into a project's registry."""
+    global_wf = workflow_registry.get_workflow_by_id(req.workflow_id)
+    if global_wf is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Workflow '{req.workflow_id}' not found in global registry",
+        )
+    global_wf.id = None
+    return workflow_registry.add_workflow(global_wf, "project", req.project_name)
+
+
+# ---- LLM Providers ---------------------------------------------------------
+
+
+@router.get("/registry/llm-providers/discover", response_model=list[LlmProvider])
+def discover_llm_providers_from_configs():
+    """Discover LLM providers from global AI tool config files (OpenCode, etc.)."""
+    return llm_provider_discovery.discover_all_llm_providers()
+
+
+@router.get("/registry/llm-providers/targets")
+def list_llm_provider_targets():
+    """Return all writable LLM provider targets (e.g. OpenCode)."""
+    return llm_provider_discovery.list_llm_provider_targets()
+
+
+class _SyncProviderRequest(pydantic.BaseModel):
+    provider_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/llm-providers/sync")
+def sync_llm_provider_to_targets(req: _SyncProviderRequest):
+    """Push a registered LLM provider into one or more agent config files."""
+    provider = llm_provider_registry.get_llm_provider_by_id(req.provider_id)
+    if provider is None:
+        raise HTTPException(status_code=404, detail="LLM Provider not found")
+    results = [
+        {
+            "target_id": tid,
+            **llm_provider_discovery.write_provider_to_target(
+                provider, tid, req.project_path
+            ),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
+@router.get("/registry/llm-providers", response_model=list[LlmProvider])
+def list_registry_llm_providers(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return llm_provider_registry.list_llm_providers(scope, project_name)
+
+
+@router.post("/registry/llm-providers", response_model=LlmProvider)
+def add_registry_llm_provider(req: dict):
+    p = LlmProvider(
+        name=req.get("name"),
+        provider_type=req.get("provider_type"),
+        api_key=req.get("api_key"),
+        base_url=req.get("base_url"),
+        sources=[],
+    )
+    return llm_provider_registry.add_llm_provider(
+        p, req.get("scope", "global"), req.get("project_name")
+    )
+
+
+@router.delete("/registry/llm-providers/{provider_id}")
+def remove_registry_llm_provider(
+    provider_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = llm_provider_registry.get_llm_provider_by_id(provider_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="LLM Provider not found")
+    llm_provider_registry.remove_llm_provider(existing.name, scope, project_name)
+    return {"message": "LLM Provider removed"}
+
+
+class _ImportProviderRequest(pydantic.BaseModel):
+    provider_id: str
+    project_name: str
+
+
+@router.post("/registry/llm-providers/import", response_model=LlmProvider)
+def import_provider_from_global(req: _ImportProviderRequest):
+    """Copy an LLM provider from the global registry into a project's registry."""
+    global_prov = llm_provider_registry.get_llm_provider_by_id(req.provider_id)
+    if global_prov is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"LLM Provider '{req.provider_id}' not found in global registry",
+        )
+    global_prov.id = None
+    return llm_provider_registry.add_llm_provider(
+        global_prov, "project", req.project_name
+    )
+
+
+# ---- Skills sync -----------------------------------------------------------
+
+
+@router.get("/registry/skills/discover")
+def discover_skills_from_configs(project_path: Optional[str] = None):
+    """Discover skills from global AI tool config files (and optionally a project)."""
+    return skill_discovery.discover_all_skills(project_path=project_path)
+
+
+@router.get("/registry/skills/targets")
+def list_skill_targets():
+    """Return all skill write targets."""
+    return skill_discovery.list_skill_targets()
+
+
+class _SyncSkillRequest(pydantic.BaseModel):
+    skill_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/skills/sync")
+def sync_skill_to_targets(req: _SyncSkillRequest):
+    """Push a registered Skill into one or more agent config files."""
+    from skill_registry import get_skill_by_id
+
+    skill = get_skill_by_id(req.skill_id)
+    if skill is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    results = [
+        {
+            "target_id": tid,
+            **skill_discovery.write_skill_to_target(skill, tid, req.project_path),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
+# ---- Workflows sync --------------------------------------------------------
+
+
+@router.get("/registry/workflows/discover")
+def discover_workflows_from_configs(project_path: Optional[str] = None):
+    """Discover workflows from global AI tool config files (and optionally a project)."""
+    return workflow_discovery.discover_all_workflows(project_path=project_path)
+
+
+@router.get("/registry/workflows/targets")
+def list_workflow_targets():
+    """Return all workflow write targets."""
+    return workflow_discovery.list_workflow_targets()
+
+
+class _SyncWorkflowRequest(pydantic.BaseModel):
+    workflow_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/workflows/sync")
+def sync_workflow_to_targets(req: _SyncWorkflowRequest):
+    """Push a registered Workflow into one or more agent config files."""
+    from workflow_registry import get_workflow_by_id
+
+    workflow = get_workflow_by_id(req.workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    results = [
+        {
+            "target_id": tid,
+            **workflow_discovery.write_workflow_to_target(
+                workflow, tid, req.project_path
+            ),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
+# ---- Import from project directory -----------------------------------------
+
+
+class _ScanProjectRequest(pydantic.BaseModel):
+    project_path: str
+
+
+@router.post("/registry/import-from-project/scan")
+def scan_project_for_artifacts(req: _ScanProjectRequest):
+    """Scan a project directory and return all discoverable artifacts."""
+    from pathlib import Path as _Path
+
+    p = _Path(req.project_path).expanduser()
+    if not p.is_dir():
+        raise HTTPException(
+            status_code=400, detail=f"Directory not found: {req.project_path}"
+        )
+    return project_importer.scan_project(req.project_path)
+
+
+class _ImportItem(pydantic.BaseModel):
+    name: str
+    type: str  # "skill" | "workflow"
+    description: Optional[str] = None
+    content: str = ""
+
+
+class _CommitImportRequest(pydantic.BaseModel):
+    items: list[_ImportItem]
+    scope: str = "global"
+    project_name: Optional[str] = None
+
+
+@router.post("/registry/import-from-project/commit")
+def commit_imported_artifacts(req: _CommitImportRequest):
+    """Save selected artifacts into the skill / workflow registries."""
+    items = [i.model_dump() for i in req.items]
+    return project_importer.commit_artifacts(items, req.scope, req.project_name)

@@ -7,7 +7,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "🔄 OpenSync – starting dev servers..."
 
 # Backend (FastAPI via uv – run from backend/ where pyproject.toml lives)
-echo "→ Starting backend on http://localhost:8000"
+echo "→ Starting backend on http://localhost:8001"
 (cd "$DIR/backend" && uv run main.py) &
 BACKEND_PID=$!
 

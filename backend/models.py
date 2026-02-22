@@ -31,6 +31,49 @@ class McpServer(BaseModel):
     )
 
 
+class Skill(BaseModel):
+    """Canonical representation of a Skill."""
+
+    id: Optional[str] = Field(None, description="Stable internal UUID")
+    name: str = Field(..., description="Unique skill name / key")
+    description: Optional[str] = Field(None, description="Short description")
+    content: Optional[str] = Field(None, description="The skill instructions/prompt")
+    sources: list[str] = Field(
+        default_factory=list, description="Which targets this skill was discovered in"
+    )
+
+
+class Workflow(BaseModel):
+    """Canonical representation of a Workflow."""
+
+    id: Optional[str] = Field(None, description="Stable internal UUID")
+    name: str = Field(..., description="Unique workflow name / key")
+    description: Optional[str] = Field(None, description="Short description")
+    content: Optional[str] = Field(
+        None, description="The workflow instructions (markdown)"
+    )
+    sources: list[str] = Field(
+        default_factory=list,
+        description="Which targets this workflow was discovered in",
+    )
+
+
+class LlmProvider(BaseModel):
+    """Canonical representation of an LLM Provider."""
+
+    id: Optional[str] = Field(None, description="Stable internal UUID")
+    name: str = Field(..., description="Unique provider name / key")
+    provider_type: Optional[str] = Field(
+        None, description="Provider type (e.g. openai, anthropic)"
+    )
+    api_key: Optional[str] = Field(None, description="API Key")
+    base_url: Optional[str] = Field(None, description="Base URL")
+    sources: list[str] = Field(
+        default_factory=list,
+        description="Which targets this provider was discovered in",
+    )
+
+
 class TargetStatus(BaseModel):
     """Status information for a sync target."""
 
