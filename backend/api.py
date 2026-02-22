@@ -16,6 +16,9 @@ import skill_registry
 import workflow_registry
 import llm_provider_registry
 import llm_provider_discovery
+import skill_discovery
+import workflow_discovery
+import project_importer
 from config_manager import (
     discover_all_servers,
     read_target_servers,
@@ -743,3 +746,124 @@ def remove_registry_llm_provider(
         raise HTTPException(status_code=404, detail="LLM Provider not found")
     llm_provider_registry.remove_llm_provider(existing.name, scope, project_name)
     return {"message": "LLM Provider removed"}
+
+
+# ---- Skills sync -----------------------------------------------------------
+
+
+@router.get("/registry/skills/discover")
+def discover_skills_from_configs():
+    """Discover skills from global AI tool config files."""
+    return skill_discovery.discover_all_skills()
+
+
+@router.get("/registry/skills/targets")
+def list_skill_targets():
+    """Return all skill write targets."""
+    return skill_discovery.list_skill_targets()
+
+
+class _SyncSkillRequest(pydantic.BaseModel):
+    skill_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/skills/sync")
+def sync_skill_to_targets(req: _SyncSkillRequest):
+    """Push a registered Skill into one or more agent config files."""
+    from skill_registry import get_skill_by_id
+
+    skill = get_skill_by_id(req.skill_id)
+    if skill is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    results = [
+        {
+            "target_id": tid,
+            **skill_discovery.write_skill_to_target(skill, tid, req.project_path),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
+# ---- Workflows sync --------------------------------------------------------
+
+
+@router.get("/registry/workflows/discover")
+def discover_workflows_from_configs():
+    """Discover workflows from global AI tool config files."""
+    return workflow_discovery.discover_all_workflows()
+
+
+@router.get("/registry/workflows/targets")
+def list_workflow_targets():
+    """Return all workflow write targets."""
+    return workflow_discovery.list_workflow_targets()
+
+
+class _SyncWorkflowRequest(pydantic.BaseModel):
+    workflow_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/workflows/sync")
+def sync_workflow_to_targets(req: _SyncWorkflowRequest):
+    """Push a registered Workflow into one or more agent config files."""
+    from workflow_registry import get_workflow_by_id
+
+    workflow = get_workflow_by_id(req.workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    results = [
+        {
+            "target_id": tid,
+            **workflow_discovery.write_workflow_to_target(
+                workflow, tid, req.project_path
+            ),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}
+
+
+# ---- Import from project directory -----------------------------------------
+
+
+class _ScanProjectRequest(pydantic.BaseModel):
+    project_path: str
+
+
+@router.post("/registry/import-from-project/scan")
+def scan_project_for_artifacts(req: _ScanProjectRequest):
+    """Scan a project directory and return all discoverable artifacts."""
+    from pathlib import Path as _Path
+
+    p = _Path(req.project_path).expanduser()
+    if not p.is_dir():
+        raise HTTPException(
+            status_code=400, detail=f"Directory not found: {req.project_path}"
+        )
+    return project_importer.scan_project(req.project_path)
+
+
+class _ImportItem(pydantic.BaseModel):
+    name: str
+    type: str  # "skill" | "workflow"
+    description: Optional[str] = None
+    content: str = ""
+    steps: list[str] = []
+
+
+class _CommitImportRequest(pydantic.BaseModel):
+    items: list[_ImportItem]
+    scope: str = "global"
+    project_name: Optional[str] = None
+
+
+@router.post("/registry/import-from-project/commit")
+def commit_imported_artifacts(req: _CommitImportRequest):
+    """Save selected artifacts into the skill / workflow registries."""
+    items = [i.model_dump() for i in req.items]
+    return project_importer.commit_artifacts(items, req.scope, req.project_name)

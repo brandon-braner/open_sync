@@ -123,8 +123,40 @@ export const api = {
         });
     },
 
+    // Skills sync
+    getSkillTargets: () => request('/api/registry/skills/targets'),
+
+    syncSkill: (skillId, targetIds, projectPath = null) =>
+        request('/api/registry/skills/sync', {
+            method: 'POST',
+            body: JSON.stringify({ skill_id: skillId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
+    // Workflows sync
+    getWorkflowTargets: () => request('/api/registry/workflows/targets'),
+
+    syncWorkflow: (workflowId, targetIds, projectPath = null) =>
+        request('/api/registry/workflows/sync', {
+            method: 'POST',
+            body: JSON.stringify({ workflow_id: workflowId, target_ids: targetIds, project_path: projectPath }),
+        }),
+
+    // Import from project directory
+    scanProjectImport: (projectPath) =>
+        request('/api/registry/import-from-project/scan', {
+            method: 'POST',
+            body: JSON.stringify({ project_path: projectPath }),
+        }),
+
+    commitProjectImport: (items, scope = 'global', projectName = null) =>
+        request('/api/registry/import-from-project/commit', {
+            method: 'POST',
+            body: JSON.stringify({ items, scope, project_name: projectName }),
+        }),
+
     // LLM Providers
     discoverLlmProviders: () => request('/api/registry/llm-providers/discover'),
+
 
     getLlmProviderTargets: () => request('/api/registry/llm-providers/targets'),
 

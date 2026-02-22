@@ -631,8 +631,18 @@ function ProjectRegistryPage({ projects, addToast, onAddProject, onRemoveProject
             setServers([]);
             return;
         }
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
         try {
             setLoading(true);
+            // Auto-scan the project directory and upsert discovered skills/workflows
+            if (projectPath) {
+                try {
+                    const discovered = await api.scanProjectImport(projectPath);
+                    if (discovered && discovered.length > 0) {
+                        await api.commitProjectImport(discovered, 'project', selectedProject);
+                    }
+                } catch (_) { /* scan errors are non-fatal */ }
+            }
             const [projData, globalData] = await Promise.all([
                 api.getRegistry('project', selectedProject),
                 api.getRegistry('global'),
@@ -644,7 +654,7 @@ function ProjectRegistryPage({ projects, addToast, onAddProject, onRemoveProject
         } finally {
             setLoading(false);
         }
-    }, [selectedProject, addToast]);
+    }, [selectedProject, projects, addToast]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -1441,30 +1451,140 @@ function LlmProviderForm({ initialData, onSave, onCancel, saveLabel }) {
     );
 }
 
-function SkillCard({ item, onEdit, onDelete }) {
+function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
     return (
         <div className="server-card registry-card">
             <div className="name">{item.name}</div>
             <div className="command">{item.description || '—'}</div>
             {item.content && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.content.slice(0, 80)}{item.content.length > 80 ? '…' : ''}</div>}
             <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
+                        📤 Push to…
+                    </button>
+                )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
                 <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
             </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
+                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function WorkflowCard({ item, onEdit, onDelete }) {
+function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
+    const [showPush, setShowPush] = useState(false);
+    const [selectedTargets, setSelectedTargets] = useState(new Set());
+    const [pushing, setPushing] = useState(false);
+
+    const toggleTarget = (id) => {
+        setSelectedTargets(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const doPush = async () => {
+        if (selectedTargets.size === 0 || !item.id) return;
+        setPushing(true);
+        await onPush(item.id, [...selectedTargets]);
+        setPushing(false);
+        setShowPush(false);
+        setSelectedTargets(new Set());
+    };
+
     return (
         <div className="server-card registry-card">
             <div className="name">{item.name}</div>
             <div className="command">{item.description || '—'}</div>
             {item.steps?.length > 0 && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.steps.length} step{item.steps.length !== 1 ? 's' : ''}</div>}
             <div className="server-actions">
+                {targets && targets.length > 0 && (
+                    <button className="btn btn-sm btn-ghost" onClick={() => { setShowPush(!showPush); setSelectedTargets(new Set()); }} title="Push to agent configs">
+                        📤 Push to…
+                    </button>
+                )}
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
                 <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
             </div>
+            {showPush && targets && (
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.75rem' }}>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.5rem' }}>Push to agent configs:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.6rem' }}>
+                        {targets.map(t => (
+                            <label
+                                key={t.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                    padding: '0.25rem 0.6rem', borderRadius: '1rem', cursor: 'pointer', fontSize: '0.82rem',
+                                    background: selectedTargets.has(t.id) ? t.color || '#555' : 'rgba(255,255,255,0.08)',
+                                    border: `1px solid ${t.color || '#555'}`,
+                                    opacity: selectedTargets.has(t.id) ? 1 : 0.65,
+                                    transition: 'all 0.15s',
+                                }}
+                            >
+                                <input type="checkbox" checked={selectedTargets.has(t.id)} onChange={() => toggleTarget(t.id)} style={{ display: 'none' }} />
+                                {selectedTargets.has(t.id) ? '✓ ' : ''}{t.display_name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowPush(false)}>Cancel</button>
+                        <button className="btn btn-primary btn-sm" disabled={selectedTargets.size === 0 || pushing} onClick={doPush}>
+                            {pushing ? '⏳ Pushing…' : `📤 Push to ${selectedTargets.size}`}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1741,59 +1861,593 @@ function makeProjectRegistryPage({ title, subtitle, emptyMsg, addLabel, FormComp
     };
 }
 
+/* ===== Import From Project Modal ===== */
+
+const SOURCE_COLORS = {
+    'Antigravity (.agent/workflows)': '#7c3aed',
+    'Antigravity (.agent/skills)': '#7c3aed',
+    'Antigravity (.agent/rules)': '#7c3aed',
+    'Cursor (.cursor/rules)': '#0ea5e9',
+    'Claude Code (CLAUDE.md)': '#d97706',
+    'GitHub Copilot (.github/copilot-instructions.md)': '#16a34a',
+    'Windsurf (.windsurfrules)': '#0891b2',
+    'OpenCode (opencode.json)': '#dc2626',
+    'OpenCode (opencode.json scripts)': '#dc2626',
+    'Continue (.continue/config)': '#7c3aed',
+    'Continue (.continue/config rules)': '#7c3aed',
+    'Aider (.aider.system.prompt.md)': '#059669',
+    'Aider (.aider.conf.yml)': '#059669',
+};
+
+function ImportFromProjectModal({ onClose, onImported, addToast }) {
+    const [projectPath, setProjectPath] = useState('');
+    const [scanning, setScanning] = useState(false);
+    const [artifacts, setArtifacts] = useState(null); // null = not scanned yet
+    const [selected, setSelected] = useState(new Set());
+    const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'skill' | 'workflow'
+    const [importing, setImporting] = useState(false);
+
+    const handleScan = async () => {
+        if (!projectPath.trim()) return;
+        setScanning(true);
+        setArtifacts(null);
+        setSelected(new Set());
+        try {
+            const found = await api.scanProjectImport(projectPath.trim());
+            setArtifacts(found);
+            if (found.length === 0) addToast('No recognisable artifacts found in that directory.', 'warn');
+        } catch (err) {
+            addToast(`Scan failed: ${err.message}`, 'error');
+        } finally {
+            setScanning(false);
+        }
+    };
+
+    const visible = (artifacts || []).filter(a => typeFilter === 'all' || a.type === typeFilter);
+
+    const toggleAll = () => {
+        if (selected.size === visible.length) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(visible.map((_, i) => i)));
+        }
+    };
+
+    const toggle = (idx) => {
+        setSelected(prev => {
+            const next = new Set(prev);
+            next.has(idx) ? next.delete(idx) : next.add(idx);
+            return next;
+        });
+    };
+
+    const handleImport = async () => {
+        const toImport = [...selected].map(i => visible[i]).map(a => ({
+            name: a.name,
+            type: a.type,
+            description: a.description,
+            content: a.content,
+            steps: a.steps,
+        }));
+        if (toImport.length === 0) return;
+        setImporting(true);
+        try {
+            const res = await api.commitProjectImport(toImport, 'global');
+            const ok = res.imported;
+            const errs = res.errors || [];
+            addToast(
+                `Imported ${ok} artifact${ok !== 1 ? 's' : ''}${errs.length ? `, ${errs.length} error(s)` : ''}`,
+                errs.length > 0 ? 'error' : 'success',
+            );
+            onImported();
+            onClose();
+        } catch (err) {
+            addToast(`Import failed: ${err.message}`, 'error');
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    // Group by source for display
+    const grouped = {};
+    visible.forEach((a, i) => {
+        if (!grouped[a.source]) grouped[a.source] = [];
+        grouped[a.source].push({ ...a, _idx: i });
+    });
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+            <div style={{
+                background: 'var(--surface, #1e1e2e)', borderRadius: '1rem', width: '100%', maxWidth: '760px',
+                maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+                boxShadow: '0 25px 80px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)',
+            }}>
+                {/* Header */}
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>⬇️ Import from Project</h3>
+                        <p style={{ margin: '0.25rem 0 0', opacity: 0.6, fontSize: '0.82rem' }}>Scan any project directory for agent artifacts and import them into the registry.</p>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1.4rem', opacity: 0.6, lineHeight: 1 }}>✕</button>
+                </div>
+
+                {/* Directory picker + scan */}
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', opacity: 0.7, marginBottom: '0.35rem' }}>Project Path</label>
+                        <DirectoryPicker value={projectPath} onChange={setProjectPath} />
+                    </div>
+                    <button
+                        className="btn btn-primary btn-sm"
+                        onClick={handleScan}
+                        disabled={!projectPath.trim() || scanning}
+                        style={{ whiteSpace: 'nowrap', minWidth: '100px' }}
+                    >
+                        {scanning ? '⏳ Scanning…' : '🔍 Scan'}
+                    </button>
+                </div>
+
+                {/* Results */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem 1.5rem' }}>
+                    {artifacts === null && !scanning && (
+                        <div style={{ textAlign: 'center', padding: '3rem 0', opacity: 0.4 }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📂</div>
+                            <div>Choose a project directory and click Scan</div>
+                        </div>
+                    )}
+                    {artifacts !== null && artifacts.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '3rem 0', opacity: 0.4 }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🤷</div>
+                            <div>No recognisable artifacts found in that directory.</div>
+                        </div>
+                    )}
+                    {artifacts !== null && artifacts.length > 0 && (
+                        <>
+                            {/* Type filter + select-all */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                                <span style={{ opacity: 0.6, fontSize: '0.8rem' }}>{artifacts.length} artifact{artifacts.length !== 1 ? 's' : ''} found</span>
+                                <div style={{ display: 'flex', gap: '0.35rem', marginLeft: 'auto' }}>
+                                    {['all', 'skill', 'workflow'].map(t => (
+                                        <button
+                                            key={t}
+                                            onClick={() => { setTypeFilter(t); setSelected(new Set()); }}
+                                            style={{
+                                                padding: '0.2rem 0.6rem', borderRadius: '0.75rem', fontSize: '0.78rem', cursor: 'pointer',
+                                                background: typeFilter === t ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)',
+                                                border: '1px solid rgba(255,255,255,0.15)', color: 'inherit',
+                                            }}
+                                        >
+                                            {t === 'all' ? '📋 All' : t === 'skill' ? '🧠 Skills' : '🔁 Workflows'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={toggleAll}
+                                    style={{ padding: '0.2rem 0.6rem', borderRadius: '0.75rem', fontSize: '0.78rem', cursor: 'pointer', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'inherit' }}
+                                >
+                                    {selected.size === visible.length && visible.length > 0 ? 'Deselect all' : 'Select all'}
+                                </button>
+                            </div>
+
+                            {/* Results grouped by source */}
+                            {Object.entries(grouped).map(([source, items]) => (
+                                <div key={source} style={{ marginBottom: '1rem' }}>
+                                    <div style={{
+                                        fontSize: '0.75rem', fontWeight: 600, opacity: 0.7, marginBottom: '0.35rem',
+                                        paddingLeft: '0.5rem', borderLeft: `3px solid ${SOURCE_COLORS[source] || '#555'}`,
+                                        textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    }}>
+                                        {source}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {items.map(a => (
+                                            <label key={a._idx} style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                                                padding: '0.5rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
+                                                background: selected.has(a._idx) ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                                                border: `1px solid ${selected.has(a._idx) ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                                                transition: 'all 0.1s',
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected.has(a._idx)}
+                                                    onChange={() => toggle(a._idx)}
+                                                    style={{ marginTop: '0.15rem', flexShrink: 0 }}
+                                                />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{a.name}</span>
+                                                        <span style={{
+                                                            fontSize: '0.7rem', padding: '0.1rem 0.45rem', borderRadius: '0.5rem',
+                                                            background: a.type === 'skill' ? 'rgba(124,58,237,0.3)' : 'rgba(220,38,38,0.3)',
+                                                            border: `1px solid ${a.type === 'skill' ? '#7c3aed' : '#dc2626'}`,
+                                                        }}>
+                                                            {a.type === 'skill' ? '🧠 Skill' : '🔁 Workflow'}
+                                                        </span>
+                                                    </div>
+                                                    {a.description && <div style={{ fontSize: '0.78rem', opacity: 0.55, marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.description}</div>}
+                                                    {a.type === 'workflow' && a.steps?.length > 0 && (
+                                                        <div style={{ fontSize: '0.72rem', opacity: 0.45, marginTop: '0.1rem' }}>{a.steps.length} step{a.steps.length !== 1 ? 's' : ''}</div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                    <span style={{ fontSize: '0.82rem', opacity: 0.6 }}>
+                        {selected.size > 0 ? `${selected.size} item${selected.size !== 1 ? 's' : ''} selected` : 'Select items to import'}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={onClose}>Cancel</button>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            disabled={selected.size === 0 || importing}
+                            onClick={handleImport}
+                        >
+                            {importing ? '⏳ Importing…' : `⬇️ Import ${selected.size || ''}`}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ===== Concrete registry pages ===== */
 
-const GlobalSkillsPage = makeGlobalRegistryPage({
-    title: '🧠 Global Skills',
-    subtitle: 'AI skills and system prompts available globally across all projects',
-    emptyMsg: 'No skills in the global registry yet.',
-    addLabel: 'Add Skill',
-    FormComponent: SkillForm,
-    CardComponent: SkillCard,
-    getItems: (scope, proj) => api.getSkills(scope, proj),
-    addItem: (data) => api.addSkill(data),
-    removeItem: (id, scope, proj) => api.removeSkill(id, scope, proj),
-    updateItem: (_id, data) => api.addSkill(data), // backend upserts on duplicate name
-});
+function GlobalSkillsPage({ addToast }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [showImport, setShowImport] = useState(false);
+    const [skillTargets, setSkillTargets] = useState([]);
 
-const ProjectSkillsPage = makeProjectRegistryPage({
-    title: '📁 Project Skills',
-    subtitle: 'AI skills scoped to a specific project',
-    emptyMsg: "No skills in this project's registry yet.",
-    addLabel: 'Add Skill',
-    FormComponent: SkillForm,
-    CardComponent: SkillCard,
-    getItems: (scope, proj) => api.getSkills(scope, proj),
-    addItem: (data) => api.addSkill(data),
-    removeItem: (id, scope, proj) => api.removeSkill(id, scope, proj),
-    updateItem: (_id, data) => api.addSkill(data),
-});
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            const [skills, targets] = await Promise.all([api.getSkills('global'), api.getSkillTargets()]);
+            setItems(skills);
+            setSkillTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [addToast]);
 
-const GlobalWorkflowsPage = makeGlobalRegistryPage({
-    title: '🔁 Global Workflows',
-    subtitle: 'Reusable multi-step workflows available globally',
-    emptyMsg: 'No workflows in the global registry yet.',
-    addLabel: 'Add Workflow',
-    FormComponent: WorkflowForm,
-    CardComponent: WorkflowCard,
-    getItems: (scope, proj) => api.getWorkflows(scope, proj),
-    addItem: (data) => api.addWorkflow(data),
-    removeItem: (id, scope, proj) => api.removeWorkflow(id, scope, proj),
-    updateItem: (_id, data) => api.addWorkflow(data),
-});
+    useEffect(() => { load(); }, [load]);
 
-const ProjectWorkflowsPage = makeProjectRegistryPage({
-    title: '📁 Project Workflows',
-    subtitle: 'Workflows scoped to a specific project',
-    emptyMsg: "No workflows in this project's registry yet.",
-    addLabel: 'Add Workflow',
-    FormComponent: WorkflowForm,
-    CardComponent: WorkflowCard,
-    getItems: (scope, proj) => api.getWorkflows(scope, proj),
-    addItem: (data) => api.addWorkflow(data),
-    removeItem: (id, scope, proj) => api.removeWorkflow(id, scope, proj),
-    updateItem: (_id, data) => api.addWorkflow(data),
-});
+    const handleAdd = async (data) => {
+        try { await api.addSkill({ ...data, scope: 'global' }); addToast(`"${data.name}" added`, 'success'); setShowAdd(false); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleEdit = async (data) => {
+        try { await api.addSkill({ ...data, scope: 'global' }); addToast(`"${data.name}" updated`, 'success'); setEditing(null); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleDelete = async (id) => {
+        try { await api.removeSkill(id, 'global'); addToast('Removed', 'success'); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handlePush = async (skillId, targetIds) => {
+        try {
+            const res = await api.syncSkill(skillId, targetIds);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(`Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`, fail ? 'error' : 'success');
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+
+    if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
+    return (
+        <div className="registry-page">
+            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} />}
+            <div className="registry-header"><h2>🧠 Global Skills</h2><p className="registry-subtitle">AI skills and system prompts available globally across all projects</p></div>
+            <div className="registry-toolbar">
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}>⬇️ Import from Project</button>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}>{showAdd ? 'Cancel' : '+ Add Skill'}</button>
+            </div>
+            {showAdd && <SkillForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="Add Skill" />}
+            {editing && <SkillForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="Save Changes" />}
+            {items.length === 0 && !showAdd ? <div className="empty-state">No skills in the global registry yet.</div> : (
+                <div className="registry-grid">
+                    {items.map(s => <SkillCard key={s.id} item={s} onEdit={setEditing} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} />)}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject }) {
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [showAddProject, setShowAddProject] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newPath, setNewPath] = useState('');
+    const [skillTargets, setSkillTargets] = useState([]);
+
+    const load = useCallback(async () => {
+        if (!selectedProject) { setItems([]); return; }
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
+        try {
+            setLoading(true);
+            // Auto-scan the project directory and upsert discovered skills/workflows
+            if (projectPath) {
+                try {
+                    const discovered = await api.scanProjectImport(projectPath);
+                    if (discovered && discovered.length > 0) {
+                        await api.commitProjectImport(discovered, 'project', selectedProject);
+                    }
+                } catch (_) { /* scan errors are non-fatal */ }
+            }
+            const [skills, targets] = await Promise.all([api.getSkills('project', selectedProject), api.getSkillTargets()]);
+            setItems(skills);
+            setSkillTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [selectedProject, projects, addToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async (data) => {
+        try { await api.addSkill({ ...data, scope: 'project', project_name: selectedProject }); addToast(`"${data.name}" added`, 'success'); setShowAdd(false); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleEdit = async (data) => {
+        try { await api.addSkill({ ...data, scope: 'project', project_name: selectedProject }); addToast(`"${data.name}" updated`, 'success'); setEditing(null); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleDelete = async (id) => {
+        try { await api.removeSkill(id, 'project', selectedProject); addToast('Removed', 'success'); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handlePush = async (skillId, targetIds) => {
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
+        try {
+            const res = await api.syncSkill(skillId, targetIds, projectPath);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(`Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`, fail ? 'error' : 'success');
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+    const handleAddProject = (e) => {
+        e.preventDefault();
+        if (!newName.trim() || !newPath.trim()) return;
+        onAddProject(newName.trim(), newPath.trim());
+        setNewName(''); setNewPath(''); setShowAddProject(false);
+        setSelectedProject(newName.trim());
+    };
+
+    const projectPath = projects.find(p => p.name === selectedProject)?.path;
+
+    return (
+        <div className="registry-page">
+            <div className="registry-header"><h2>📁 Project Skills</h2><p className="registry-subtitle">AI skills scoped to a specific project</p></div>
+            <div className="scope-bar" style={{ marginBottom: '1rem' }}>
+                <div className="project-selector" style={{ flex: 1 }}>
+                    <select value={selectedProject || ''} onChange={(e) => setSelectedProject(e.target.value || null)} className="project-select">
+                        <option value="">— Select a project —</option>
+                        {projects.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                    <button className="scope-tab" onClick={() => setShowAddProject(!showAddProject)} title="Add new project">{showAddProject ? '✕' : '＋'}</button>
+                    {selectedProject && (<button className="scope-tab project-remove-btn" onClick={() => { onRemoveProject(selectedProject); setSelectedProject(null); }} title="Remove project">🗑️</button>)}
+                </div>
+            </div>
+            {showAddProject && (
+                <form className="add-project-form" onSubmit={handleAddProject}>
+                    <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
+                    <DirectoryPicker value={newPath} onChange={setNewPath} />
+                    <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                </form>
+            )}
+            {selectedProject && projectPath && <div className="project-path-display" style={{ marginBottom: '1rem' }}>📂 {projectPath}</div>}
+            {!selectedProject ? (
+                <div className="panel"><div className="empty"><div className="emoji">👆</div>Select a project above.</div></div>
+            ) : loading ? (
+                <div className="loading"><div className="spinner" /><div>Loading…</div></div>
+            ) : (
+                <>
+                    <div className="registry-toolbar">
+                        <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Skill'}</button>
+                    </div>
+                    {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><SkillForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+                    {editing && (<div className="panel" style={{ marginBottom: '1rem' }}><div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div><SkillForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" /></div>)}
+                    {items.length === 0 && !showAdd ? (
+                        <div className="panel"><div className="empty"><div className="emoji">📫</div>No skills in this project's registry yet.</div></div>
+                    ) : (
+                        <div className="registry-grid">
+                            {items.map(s => <SkillCard key={s.id} item={s} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} />)}
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
+
+function GlobalWorkflowsPage({ addToast }) {
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [showImport, setShowImport] = useState(false);
+    const [workflowTargets, setWorkflowTargets] = useState([]);
+
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            const [workflows, targets] = await Promise.all([api.getWorkflows('global'), api.getWorkflowTargets()]);
+            setItems(workflows);
+            setWorkflowTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [addToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async (data) => {
+        try { await api.addWorkflow({ ...data, scope: 'global' }); addToast(`"${data.name}" added`, 'success'); setShowAdd(false); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleEdit = async (data) => {
+        try { await api.addWorkflow({ ...data, scope: 'global' }); addToast(`"${data.name}" updated`, 'success'); setEditing(null); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleDelete = async (id) => {
+        try { await api.removeWorkflow(id, 'global'); addToast('Removed', 'success'); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handlePush = async (workflowId, targetIds) => {
+        try {
+            const res = await api.syncWorkflow(workflowId, targetIds);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(`Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`, fail ? 'error' : 'success');
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+
+    if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
+    return (
+        <div className="registry-page">
+            {showImport && <ImportFromProjectModal onClose={() => setShowImport(false)} onImported={load} addToast={addToast} />}
+            <div className="registry-header"><h2>🔁 Global Workflows</h2><p className="registry-subtitle">Reusable multi-step workflows available globally</p></div>
+            <div className="registry-toolbar">
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}>⬇️ Import from Project</button>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}>{showAdd ? 'Cancel' : '+ Add Workflow'}</button>
+            </div>
+            {showAdd && <WorkflowForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="Add Workflow" />}
+            {editing && <WorkflowForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="Save Changes" />}
+            {items.length === 0 && !showAdd ? <div className="empty-state">No workflows in the global registry yet.</div> : (
+                <div className="registry-grid">
+                    {items.map(w => <WorkflowCard key={w.id} item={w} onEdit={setEditing} onDelete={handleDelete} targets={workflowTargets} onPush={handlePush} />)}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProject }) {
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showAdd, setShowAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
+    const [showAddProject, setShowAddProject] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newPath, setNewPath] = useState('');
+    const [workflowTargets, setWorkflowTargets] = useState([]);
+
+    const load = useCallback(async () => {
+        if (!selectedProject) { setItems([]); return; }
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
+        try {
+            setLoading(true);
+            // Auto-scan the project directory and upsert discovered skills/workflows
+            if (projectPath) {
+                try {
+                    const discovered = await api.scanProjectImport(projectPath);
+                    if (discovered && discovered.length > 0) {
+                        await api.commitProjectImport(discovered, 'project', selectedProject);
+                    }
+                } catch (_) { /* scan errors are non-fatal */ }
+            }
+            const [workflows, targets] = await Promise.all([api.getWorkflows('project', selectedProject), api.getWorkflowTargets()]);
+            setItems(workflows);
+            setWorkflowTargets(targets);
+        } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+        finally { setLoading(false); }
+    }, [selectedProject, projects, addToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async (data) => {
+        try { await api.addWorkflow({ ...data, scope: 'project', project_name: selectedProject }); addToast(`"${data.name}" added`, 'success'); setShowAdd(false); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleEdit = async (data) => {
+        try { await api.addWorkflow({ ...data, scope: 'project', project_name: selectedProject }); addToast(`"${data.name}" updated`, 'success'); setEditing(null); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handleDelete = async (id) => {
+        try { await api.removeWorkflow(id, 'project', selectedProject); addToast('Removed', 'success'); await load(); }
+        catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+    };
+    const handlePush = async (workflowId, targetIds) => {
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
+        try {
+            const res = await api.syncWorkflow(workflowId, targetIds, projectPath);
+            const ok = res.results.filter(r => r.success).length;
+            const fail = res.results.length - ok;
+            addToast(`Pushed to ${ok} target${ok !== 1 ? 's' : ''}${fail ? `, ${fail} failed` : ''}`, fail ? 'error' : 'success');
+        } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
+    };
+    const handleAddProject = (e) => {
+        e.preventDefault();
+        if (!newName.trim() || !newPath.trim()) return;
+        onAddProject(newName.trim(), newPath.trim());
+        setNewName(''); setNewPath(''); setShowAddProject(false);
+        setSelectedProject(newName.trim());
+    };
+
+    const projectPath = projects.find(p => p.name === selectedProject)?.path;
+
+    return (
+        <div className="registry-page">
+            <div className="registry-header"><h2>📁 Project Workflows</h2><p className="registry-subtitle">Workflows scoped to a specific project</p></div>
+            <div className="scope-bar" style={{ marginBottom: '1rem' }}>
+                <div className="project-selector" style={{ flex: 1 }}>
+                    <select value={selectedProject || ''} onChange={(e) => setSelectedProject(e.target.value || null)} className="project-select">
+                        <option value="">— Select a project —</option>
+                        {projects.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                    <button className="scope-tab" onClick={() => setShowAddProject(!showAddProject)} title="Add new project">{showAddProject ? '✕' : '＋'}</button>
+                    {selectedProject && (<button className="scope-tab project-remove-btn" onClick={() => { onRemoveProject(selectedProject); setSelectedProject(null); }} title="Remove project">🗑️</button>)}
+                </div>
+            </div>
+            {showAddProject && (
+                <form className="add-project-form" onSubmit={handleAddProject}>
+                    <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
+                    <DirectoryPicker value={newPath} onChange={setNewPath} />
+                    <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                </form>
+            )}
+            {selectedProject && projectPath && <div className="project-path-display" style={{ marginBottom: '1rem' }}>📂 {projectPath}</div>}
+            {!selectedProject ? (
+                <div className="panel"><div className="empty"><div className="emoji">👆</div>Select a project above.</div></div>
+            ) : loading ? (
+                <div className="loading"><div className="spinner" /><div>Loading…</div></div>
+            ) : (
+                <>
+                    <div className="registry-toolbar">
+                        <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>{showAdd ? '✕ Cancel' : '＋ Add Workflow'}</button>
+                    </div>
+                    {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><WorkflowForm onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+                    {editing && (<div className="panel" style={{ marginBottom: '1rem' }}><div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div><WorkflowForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" /></div>)}
+                    {items.length === 0 && !showAdd ? (
+                        <div className="panel"><div className="empty"><div className="emoji">📫</div>No workflows in this project's registry yet.</div></div>
+                    ) : (
+                        <div className="registry-grid">
+                            {items.map(w => <WorkflowCard key={w.id} item={w} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={workflowTargets} onPush={handlePush} />)}
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}
 
 function GlobalLlmProvidersPage({ addToast }) {
     const [items, setItems] = useState([]);
@@ -2059,8 +2713,10 @@ function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemovePro
         } catch (err) { addToast(`Push failed: ${err.message}`, 'error'); }
     };
 
-    // Only show project-scoped targets on the project page
-    const projectTargets = providerTargets.filter(t => t.scope === 'project');
+    // Show all targets on the project page — global-scope agents (Continue, Aider, etc.)
+    // write to user-level configs regardless of project, and project_path is passed
+    // to handlePush so project-specific targets (opencode_project) still resolve correctly.
+    const projectTargets = providerTargets;
 
     const handleAddProject = (e) => {
         e.preventDefault();
