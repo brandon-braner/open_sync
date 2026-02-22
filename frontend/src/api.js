@@ -81,6 +81,69 @@ export const api = {
             body: JSON.stringify({ server_name: serverName, project_name: projectName }),
         }),
 
+    // Skills
+    getSkills: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/skills?${params}`);
+    },
+
+    addSkill: (data) =>
+        request('/api/registry/skills', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeSkill: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/skills/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    // Workflows
+    getWorkflows: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/workflows?${params}`);
+    },
+
+    addWorkflow: (data) =>
+        request('/api/registry/workflows', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeWorkflow: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/workflows/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
+    // LLM Providers
+    getLlmProviders: (scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/llm-providers?${params}`);
+    },
+
+    addLlmProvider: (data) =>
+        request('/api/registry/llm-providers', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    removeLlmProvider: (id, scope = 'global', projectName = null) => {
+        const params = new URLSearchParams({ scope });
+        if (projectName) params.set('project_name', projectName);
+        return request(`/api/registry/llm-providers/${encodeURIComponent(id)}?${params}`, {
+            method: 'DELETE',
+        });
+    },
+
     // Projects
     getProjects: () => request('/api/projects'),
 

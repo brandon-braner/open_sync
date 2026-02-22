@@ -11,6 +11,9 @@ import httpx
 import mcp_registry_client
 import project_registry
 import server_registry
+import skill_registry
+import workflow_registry
+import llm_provider_registry
 from config_manager import (
     discover_all_servers,
     read_target_servers,
@@ -29,6 +32,9 @@ from models import (
     SyncResponse,
     TargetStatus,
     UpdateServerRequest,
+    Skill,
+    Workflow,
+    LlmProvider,
 )
 
 router = APIRouter(prefix="/api")
@@ -587,3 +593,109 @@ def remove_server(
         r = remove_server_from_target(target, server_name, pdir)
         results.append(r.model_dump())
     return {"results": results}
+
+
+# ---- Skills ----------------------------------------------------------------
+
+
+@router.get("/registry/skills", response_model=list[Skill])
+def list_registry_skills(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return skill_registry.list_skills(scope, project_name)
+
+
+@router.post("/registry/skills", response_model=Skill)
+def add_registry_skill(req: dict):
+    s = Skill(
+        name=req.get("name"),
+        description=req.get("description"),
+        content=req.get("content", ""),
+        sources=[]
+    )
+    return skill_registry.add_skill(s, req.get("scope", "global"), req.get("project_name"))
+
+
+@router.delete("/registry/skills/{skill_id}")
+def remove_registry_skill(
+    skill_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = skill_registry.get_skill_by_id(skill_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    skill_registry.remove_skill(existing.name, scope, project_name)
+    return {"message": "Skill removed"}
+
+
+# ---- Workflows -------------------------------------------------------------
+
+
+@router.get("/registry/workflows", response_model=list[Workflow])
+def list_registry_workflows(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return workflow_registry.list_workflows(scope, project_name)
+
+
+@router.post("/registry/workflows", response_model=Workflow)
+def add_registry_workflow(req: dict):
+    w = Workflow(
+        name=req.get("name"),
+        description=req.get("description"),
+        steps=req.get("steps", []),
+        sources=[]
+    )
+    return workflow_registry.add_workflow(w, req.get("scope", "global"), req.get("project_name"))
+
+
+@router.delete("/registry/workflows/{workflow_id}")
+def remove_registry_workflow(
+    workflow_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = workflow_registry.get_workflow_by_id(workflow_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    workflow_registry.remove_workflow(existing.name, scope, project_name)
+    return {"message": "Workflow removed"}
+
+
+# ---- LLM Providers ---------------------------------------------------------
+
+
+@router.get("/registry/llm-providers", response_model=list[LlmProvider])
+def list_registry_llm_providers(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return llm_provider_registry.list_llm_providers(scope, project_name)
+
+
+@router.post("/registry/llm-providers", response_model=LlmProvider)
+def add_registry_llm_provider(req: dict):
+    p = LlmProvider(
+        name=req.get("name"),
+        provider_type=req.get("provider_type"),
+        api_key=req.get("api_key"),
+        base_url=req.get("base_url"),
+        sources=[]
+    )
+    return llm_provider_registry.add_llm_provider(p, req.get("scope", "global"), req.get("project_name"))
+
+
+@router.delete("/registry/llm-providers/{provider_id}")
+def remove_registry_llm_provider(
+    provider_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = llm_provider_registry.get_llm_provider_by_id(provider_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="LLM Provider not found")
+    llm_provider_registry.remove_llm_provider(existing.name, scope, project_name)
+    return {"message": "LLM Provider removed"}

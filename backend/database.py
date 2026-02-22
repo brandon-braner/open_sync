@@ -60,6 +60,37 @@ CREATE TABLE IF NOT EXISTS servers (
     headers  TEXT DEFAULT '{}',
     UNIQUE (name, scope, project)
 );
+
+CREATE TABLE IF NOT EXISTS skills (
+    id       TEXT NOT NULL PRIMARY KEY,
+    name     TEXT NOT NULL,
+    scope    TEXT NOT NULL DEFAULT 'global',
+    project  TEXT NOT NULL DEFAULT '',
+    description TEXT,
+    content  TEXT,
+    UNIQUE (name, scope, project)
+);
+
+CREATE TABLE IF NOT EXISTS workflows (
+    id       TEXT NOT NULL PRIMARY KEY,
+    name     TEXT NOT NULL,
+    scope    TEXT NOT NULL DEFAULT 'global',
+    project  TEXT NOT NULL DEFAULT '',
+    description TEXT,
+    steps    TEXT DEFAULT '[]',
+    UNIQUE (name, scope, project)
+);
+
+CREATE TABLE IF NOT EXISTS llm_providers (
+    id       TEXT NOT NULL PRIMARY KEY,
+    name     TEXT NOT NULL,
+    scope    TEXT NOT NULL DEFAULT 'global',
+    project  TEXT NOT NULL DEFAULT '',
+    provider_type TEXT,
+    api_key  TEXT,
+    base_url TEXT,
+    UNIQUE (name, scope, project)
+);
 """
 
 

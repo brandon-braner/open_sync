@@ -901,40 +901,95 @@ header p {
   margin-top: 0.25rem;
 }
 
-/* ---- Nav Bar ---- */
+/* ---- Nav Bar (two-tier) ---- */
 
 .nav-bar {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.4rem;
+  flex-direction: column;
+  gap: 0;
   background: var(--bg-glass);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   margin-bottom: 1.75rem;
+  overflow: hidden;
 }
 
-.nav-link {
-  flex: 1;
-  text-align: center;
-  padding: 0.6rem 1rem;
+.nav-tier {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.4rem;
+}
+
+.nav-tier-top {
+  border-bottom: 1px solid transparent;
+}
+
+.nav-tier-sub {
+  border-top: 1px solid var(--border);
+  background: rgba(0, 0, 0, .15);
+  padding: 0.3rem 0.7rem;
+  gap: 0.25rem;
+  animation: slideDown 0.15s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Section tabs (top tier) */
+.nav-section-tab {
+  padding: 0.55rem 1.1rem;
   font-family: var(--font);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: var(--radius-sm);
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
-.nav-link:hover {
+.nav-section-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .05);
+}
+
+.nav-section-tab.active {
+  background: linear-gradient(135deg, rgba(88, 166, 255, .18), rgba(124, 58, 237, .18));
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(88, 166, 255, .1);
+}
+
+/* Sub-links (bottom tier) */
+.nav-sub-link {
+  padding: 0.3rem 0.8rem;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.nav-sub-link:hover {
   color: var(--text-primary);
   background: rgba(255, 255, 255, .04);
 }
 
-.nav-link.active {
-  background: linear-gradient(135deg, rgba(88, 166, 255, .15), rgba(124, 58, 237, .15));
+.nav-sub-link.active {
   color: var(--accent);
-  box-shadow: 0 0 12px rgba(88, 166, 255, .08);
+  background: rgba(88, 166, 255, .1);
 }
 
 /* ---- Registry Page ---- */

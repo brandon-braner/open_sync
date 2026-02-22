@@ -1,4 +1,8 @@
-.PHONY: test test-backend test-frontend
+.PHONY: run test test-backend test-frontend
+
+## Start both backend and frontend dev servers
+run:
+	./run.sh
 
 ## Run all tests
 test: test-backend test-frontend

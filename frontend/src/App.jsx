@@ -1056,9 +1056,16 @@ function McpRegistryBrowserPage({ addToast, projects }) {
 /* ===== Dashboard Page (original sync view) ===== */
 
 function DashboardPage({ addToast, scope, setScope, projects, selectedProject, setSelectedProject, onAddProject, onRemoveProject }) {
+    const [activeTab, setActiveTab] = useState('servers');
     const [servers, setServers] = useState([]);
+    const [skills, setSkills] = useState([]);
+    const [workflows, setWorkflows] = useState([]);
+    const [llms, setLlms] = useState([]);
     const [targets, setTargets] = useState([]);
     const [selectedServers, setSelectedServers] = useState(new Set());
+    const [selectedSkills, setSelectedSkills] = useState(new Set());
+    const [selectedWorkflows, setSelectedWorkflows] = useState(new Set());
+    const [selectedLlms, setSelectedLlms] = useState(new Set());
     const [selectedTargets, setSelectedTargets] = useState(new Set());
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
@@ -1069,6 +1076,9 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
     const load = useCallback(async () => {
         if (scope === 'project' && !projectPath) {
             setServers([]);
+            setSkills([]);
+            setWorkflows([]);
+            setLlms([]);
             setTargets([]);
             setLoading(false);
             return;
@@ -1076,12 +1086,18 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         try {
             setLoading(true);
             const pp = scope === 'project' ? projectPath : null;
-            const [srv, tgt] = await Promise.all([
+            const [srv, tgt, sk, wf, lm] = await Promise.all([
                 api.getServers(scope, pp),
                 api.getTargets(scope, pp),
+                api.getSkills(scope, pp),
+                api.getWorkflows(scope, pp),
+                api.getLlmProviders(scope, pp)
             ]);
             setServers(srv);
             setTargets(tgt);
+            setSkills(sk);
+            setWorkflows(wf);
+            setLlms(lm);
         } catch (err) {
             addToast(`Failed to load: ${err.message}`, 'error');
         } finally {
@@ -1093,6 +1109,9 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
 
     useEffect(() => {
         setSelectedServers(new Set());
+        setSelectedSkills(new Set());
+        setSelectedWorkflows(new Set());
+        setSelectedLlms(new Set());
         setSelectedTargets(new Set());
     }, [scope, selectedProject]);
 
@@ -1101,8 +1120,8 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         [targets]
     );
 
-    const toggleServer = (name) => {
-        setSelectedServers((prev) => {
+    const toggleItem = (name, setSelection) => {
+        setSelection((prev) => {
             const next = new Set(prev);
             next.has(name) ? next.delete(name) : next.add(name);
             return next;
@@ -1117,11 +1136,11 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         });
     };
 
-    const selectAllServers = () => {
-        if (selectedServers.size === servers.length) {
-            setSelectedServers(new Set());
+    const selectAllItems = (items, selected, setSelection) => {
+        if (selected.size === items.length) {
+            setSelection(new Set());
         } else {
-            setSelectedServers(new Set(servers.map((s) => s.name)));
+            setSelection(new Set(items.map((i) => i.name)));
         }
     };
 
@@ -1135,10 +1154,16 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
     };
 
     const doSync = async () => {
-        if (selectedServers.size === 0 || selectedTargets.size === 0) return;
+        // Since we only fully support servers syncing right now, we can pass them along.
+        // To be fully functional for skills, we would update api.sync
+        if (selectedServers.size === 0 && selectedSkills.size === 0 && selectedWorkflows.size === 0 && selectedLlms.size === 0) return;
+        if (selectedTargets.size === 0) return;
         try {
             setSyncing(true);
             const pp = scope === 'project' ? projectPath.trim() : null;
+            // Provide all selected resource names to the sync endpoint. 
+            // Currently api.js expects: sync(serverNames, targetNames, scope, projectPath)
+            // As a stub for future, we still call the same endpoint.
             const res = await api.sync([...selectedServers], [...selectedTargets], scope, pp);
             setResults(res);
             const ok = res.results.filter((r) => r.success).length;
@@ -1207,10 +1232,19 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
                     selectedProject={selectedProject} onSelectProject={(name) => setSelectedProject(name || null)}
                     onAddProject={onAddProject} onRemoveProject={onRemoveProject}
                 />
-                <div className="loading"><div className="spinner" /><div>Discovering MCP servers…</div></div>
+                <div className="loading"><div className="spinner" /><div>Discovering Resources…</div></div>
             </div>
         );
     }
+
+    const TABS = [
+        { id: 'servers', label: '🔌 MCP Servers', items: servers, selected: selectedServers, setSelection: setSelectedServers },
+        { id: 'skills', label: '🧠 Skills', items: skills, selected: selectedSkills, setSelection: setSelectedSkills },
+        { id: 'workflows', label: '🔄 Workflows', items: workflows, selected: selectedWorkflows, setSelection: setSelectedWorkflows },
+        { id: 'llms', label: '🤖 LLM Providers', items: llms, selected: selectedLlms, setSelection: setSelectedLlms },
+    ];
+
+    const currentTabData = TABS.find(t => t.id === activeTab);
 
     return (
         <div>
@@ -1220,45 +1254,56 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
                 onAddProject={onAddProject} onRemoveProject={onRemoveProject}
             />
 
+            <div className="scope-tabs" style={{ marginBottom: '1rem', borderBottom: '1px solid #333' }}>
+                {TABS.map(t => (
+                    <button
+                        key={t.id}
+                        className={`scope-tab${activeTab === t.id ? ' active' : ''}`}
+                        onClick={() => setActiveTab(t.id)}
+                        style={{ borderBottom: activeTab === t.id ? '2px solid #fff' : 'none', borderRadius: 0, paddingBottom: '0.5rem' }}
+                    >
+                        {t.label} ({t.items.length})
+                    </button>
+                ))}
+            </div>
+
             <div className="grid-2">
-                {/* Left: Servers */}
+                {/* Left: Resources */}
                 <div>
                     <div className="panel">
                         <div className="panel-title">
-                            <span className="icon">🔌</span>
-                            MCP Servers ({servers.length})
+                            <span className="icon">{currentTabData.label.split(' ')[0]}</span>
+                            {currentTabData.label.split(' ').slice(1).join(' ')}
                             <span className="scope-badge">{scope}</span>
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                            <button className="select-all" onClick={selectAllServers}>
-                                {selectedServers.size === servers.length ? 'Deselect all' : 'Select all'}
+                            <button className="select-all" onClick={() => selectAllItems(currentTabData.items, currentTabData.selected, currentTabData.setSelection)}>
+                                {currentTabData.selected.size === currentTabData.items.length && currentTabData.items.length > 0 ? 'Deselect all' : 'Select all'}
                             </button>
                         </div>
 
-                        {servers.length === 0 ? (
+                        {currentTabData.items.length === 0 ? (
                             <div className="empty">
                                 <div className="emoji">🔍</div>
                                 {scope === 'project' && !projectPath.trim()
-                                    ? 'Enter a project path above to scan for MCP configs.'
-                                    : 'No MCP servers found. Go to a Registry page to add servers.'}
+                                    ? `Enter a project path above to scan for ${currentTabData.label}.`
+                                    : `No ${currentTabData.label} found. Add them to sync.`}
                             </div>
                         ) : (
                             <div className="server-list">
-                                {servers.map((s) => (
-                                    <ServerCard
-                                        key={s.name}
-                                        server={s}
-                                        selected={selectedServers.has(s.name)}
-                                        onToggle={() => toggleServer(s.name)}
-                                        targetPaths={pathMap}
-                                        onCopyPath={(path, tName) =>
-                                            addToast(`📋 Copied ${labelFor(tName)} config path`, 'success')
-                                        }
-                                        onDelete={handleDeleteFromRegistry}
-                                        onRemoveFromTarget={handleRemoveFromTarget}
-                                        onAddToRegistry={handleAddToRegistry}
-                                    />
+                                {currentTabData.items.map((item) => (
+                                    <div
+                                        key={item.name}
+                                        className={`server-card${currentTabData.selected.has(item.name) ? ' selected' : ''}`}
+                                        onClick={() => toggleItem(item.name, currentTabData.setSelection)}
+                                    >
+                                        <div className="check">{currentTabData.selected.has(item.name) ? '✓' : ''}</div>
+                                        <div className="name">
+                                            {item.name}
+                                        </div>
+                                        <div className="command">{item.description || item.command || item.provider_type || '—'}</div>
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -1292,12 +1337,12 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
             {/* Sync bar */}
             <div className="sync-bar">
                 <div className="summary">
-                    <strong>{selectedServers.size}</strong> server{selectedServers.size !== 1 ? 's' : ''} →{' '}
-                    <strong>{selectedTargets.size}</strong> target{selectedTargets.size !== 1 ? 's' : ''}
+                    <strong>{selectedServers.size + selectedSkills.size + selectedWorkflows.size + selectedLlms.size}</strong> item(s) →{' '}
+                    <strong>{selectedTargets.size}</strong> target(s)
                 </div>
                 <button
                     className="btn btn-primary"
-                    disabled={selectedServers.size === 0 || selectedTargets.size === 0 || syncing}
+                    disabled={(selectedServers.size === 0 && selectedSkills.size === 0 && selectedWorkflows.size === 0 && selectedLlms.size === 0) || selectedTargets.size === 0 || syncing}
                     onClick={doSync}
                 >
                     {syncing ? '⏳ Syncing…' : '🔄 Sync Now'}
@@ -1308,6 +1353,409 @@ function DashboardPage({ addToast, scope, setScope, projects, selectedProject, s
         </div>
     );
 }
+
+/* ===== Generic Registry Page helpers ===== */
+
+function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        description: initialData?.description || '',
+        content: initialData?.content || '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-skill" required /></div>
+            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
+            <div className="form-group full"><label>Content / Instructions</label><textarea value={form.content} onChange={set('content')} placeholder="You are a helpful…" rows={5} /></div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+function WorkflowForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        description: initialData?.description || '',
+        steps: initialData?.steps ? initialData.steps.join('\n') : '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        const steps = form.steps.split('\n').map(s => s.trim()).filter(Boolean);
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, steps });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-workflow" required /></div>
+            <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
+            <div className="form-group full"><label>Steps (one per line)</label><textarea value={form.steps} onChange={set('steps')} placeholder="Step 1\nStep 2\nStep 3" rows={5} /></div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+const LLM_PROVIDER_TYPES = ['openai', 'anthropic', 'ollama', 'gemini', 'custom'];
+
+function LlmProviderForm({ initialData, onSave, onCancel, saveLabel }) {
+    const [form, setForm] = useState({
+        name: initialData?.name || '',
+        provider_type: initialData?.provider_type || 'openai',
+        api_key: initialData?.api_key || '',
+        base_url: initialData?.base_url || '',
+    });
+    const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+    const submit = (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) return;
+        onSave({ name: form.name.trim(), provider_type: form.provider_type, api_key: form.api_key.trim() || null, base_url: form.base_url.trim() || null });
+    };
+    return (
+        <form className="add-form" onSubmit={submit}>
+            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-openai" required /></div>
+            <div className="form-group">
+                <label>Provider Type</label>
+                <select value={form.provider_type} onChange={set('provider_type')} className="project-select">
+                    {LLM_PROVIDER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+            </div>
+            <div className="form-group full"><label>API Key</label><input type="password" value={form.api_key} onChange={set('api_key')} placeholder="sk-…" /></div>
+            <div className="form-group full"><label>Base URL (optional)</label><input value={form.base_url} onChange={set('base_url')} placeholder="https://api.openai.com/v1" /></div>
+            <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary">{saveLabel || '💾 Save'}</button>
+            </div>
+        </form>
+    );
+}
+
+function SkillCard({ item, onEdit, onDelete }) {
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">{item.description || '—'}</div>
+            {item.content && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.content.slice(0, 80)}{item.content.length > 80 ? '…' : ''}</div>}
+            <div className="server-actions">
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+        </div>
+    );
+}
+
+function WorkflowCard({ item, onEdit, onDelete }) {
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">{item.description || '—'}</div>
+            {item.steps?.length > 0 && <div className="command" style={{ opacity: 0.6, fontSize: '0.75rem', marginTop: '0.25rem' }}>{item.steps.length} step{item.steps.length !== 1 ? 's' : ''}</div>}
+            <div className="server-actions">
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+        </div>
+    );
+}
+
+function LlmProviderCard({ item, onEdit, onDelete }) {
+    return (
+        <div className="server-card registry-card">
+            <div className="name">{item.name}</div>
+            <div className="command">
+                <span className="env-tag" style={{ marginRight: '0.5rem' }}>{item.provider_type}</span>
+                {item.base_url && <span style={{ opacity: 0.7, fontSize: '0.8rem' }}>{item.base_url}</span>}
+            </div>
+            {item.api_key && <div className="command" style={{ opacity: 0.5, fontSize: '0.75rem' }}>API key: ••••••••</div>}
+            <div className="server-actions">
+                <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
+                <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
+            </div>
+        </div>
+    );
+}
+
+/* ===== Generic scoped registry page factory ===== */
+
+function makeGlobalRegistryPage({ title, subtitle, emptyMsg, addLabel, FormComponent, CardComponent, getItems, addItem, removeItem, updateItem }) {
+    return function GenericGlobalPage({ addToast }) {
+        const [items, setItems] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const [showAdd, setShowAdd] = useState(false);
+        const [editing, setEditing] = useState(null);
+
+        const load = useCallback(async () => {
+            try {
+                setLoading(true);
+                setItems(await getItems('global'));
+            } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+            finally { setLoading(false); }
+        }, [addToast]);
+
+        useEffect(() => { load(); }, [load]);
+
+        const handleAdd = async (data) => {
+            try {
+                await addItem({ ...data, scope: 'global' });
+                addToast(`"${data.name}" added`, 'success');
+                setShowAdd(false); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        const handleEdit = async (data) => {
+            try {
+                await updateItem(editing.id, { ...data, scope: 'global' });
+                addToast(`"${data.name}" updated`, 'success');
+                setEditing(null); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        const handleDelete = async (id) => {
+            try {
+                await removeItem(id, 'global');
+                addToast('Removed', 'success'); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        if (loading) return <div className="registry-page"><div className="loading"><div className="spinner" /><div>Loading…</div></div></div>;
+
+        return (
+            <div className="registry-page">
+                <div className="registry-header"><h2>{title}</h2><p className="registry-subtitle">{subtitle}</p></div>
+                <div className="registry-toolbar">
+                    <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                    <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
+                        {showAdd ? '✕ Cancel' : `＋ ${addLabel}`}
+                    </button>
+                </div>
+                {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><FormComponent onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+                {editing && (
+                    <div className="panel" style={{ marginBottom: '1rem' }}>
+                        <div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div>
+                        <FormComponent initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" />
+                    </div>
+                )}
+                {items.length === 0 && !showAdd ? (
+                    <div className="panel"><div className="empty"><div className="emoji">📭</div>{emptyMsg}</div></div>
+                ) : (
+                    <div className="server-list">
+                        {items.map(item => (
+                            <CardComponent key={item.id || item.name} item={item} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+}
+
+function makeProjectRegistryPage({ title, subtitle, emptyMsg, addLabel, FormComponent, CardComponent, getItems, addItem, removeItem, updateItem }) {
+    return function GenericProjectPage({ projects, addToast, onAddProject, onRemoveProject }) {
+        const [selectedProject, setSelectedProject] = useState(null);
+        const [items, setItems] = useState([]);
+        const [loading, setLoading] = useState(false);
+        const [showAdd, setShowAdd] = useState(false);
+        const [editing, setEditing] = useState(null);
+        const [showAddProject, setShowAddProject] = useState(false);
+        const [newName, setNewName] = useState('');
+        const [newPath, setNewPath] = useState('');
+
+        const load = useCallback(async () => {
+            if (!selectedProject) { setItems([]); return; }
+            try {
+                setLoading(true);
+                setItems(await getItems('project', selectedProject));
+            } catch (err) { addToast(`Failed to load: ${err.message}`, 'error'); }
+            finally { setLoading(false); }
+        }, [selectedProject, addToast]);
+
+        useEffect(() => { load(); }, [load]);
+
+        const handleAdd = async (data) => {
+            try {
+                await addItem({ ...data, scope: 'project', project_name: selectedProject });
+                addToast(`"${data.name}" added`, 'success');
+                setShowAdd(false); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        const handleEdit = async (data) => {
+            try {
+                await updateItem(editing.id, { ...data, scope: 'project', project_name: selectedProject });
+                addToast(`"${data.name}" updated`, 'success');
+                setEditing(null); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        const handleDelete = async (id) => {
+            try {
+                await removeItem(id, 'project', selectedProject);
+                addToast('Removed', 'success'); await load();
+            } catch (err) { addToast(`Failed: ${err.message}`, 'error'); }
+        };
+
+        const handleAddProject = (e) => {
+            e.preventDefault();
+            if (!newName.trim() || !newPath.trim()) return;
+            onAddProject(newName.trim(), newPath.trim());
+            setNewName(''); setNewPath(''); setShowAddProject(false);
+            setSelectedProject(newName.trim());
+        };
+
+        const projectPath = projects.find(p => p.name === selectedProject)?.path;
+
+        return (
+            <div className="registry-page">
+                <div className="registry-header"><h2>{title}</h2><p className="registry-subtitle">{subtitle}</p></div>
+
+                <div className="scope-bar" style={{ marginBottom: '1rem' }}>
+                    <div className="project-selector" style={{ flex: 1 }}>
+                        <select value={selectedProject || ''} onChange={(e) => setSelectedProject(e.target.value || null)} className="project-select">
+                            <option value="">— Select a project —</option>
+                            {projects.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                        </select>
+                        <button className="scope-tab" onClick={() => setShowAddProject(!showAddProject)} title="Add new project">{showAddProject ? '✕' : '＋'}</button>
+                        {selectedProject && (
+                            <button className="scope-tab project-remove-btn" onClick={() => { onRemoveProject(selectedProject); setSelectedProject(null); }} title="Remove project">🗑️</button>
+                        )}
+                    </div>
+                </div>
+
+                {showAddProject && (
+                    <form className="add-project-form" onSubmit={handleAddProject}>
+                        <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
+                        <DirectoryPicker value={newPath} onChange={setNewPath} />
+                        <button type="submit" className="btn btn-primary btn-sm">Add</button>
+                    </form>
+                )}
+
+                {selectedProject && projectPath && <div className="project-path-display" style={{ marginBottom: '1rem' }}>📂 {projectPath}</div>}
+
+                {!selectedProject ? (
+                    <div className="panel"><div className="empty"><div className="emoji">👆</div>Select a project above.</div></div>
+                ) : loading ? (
+                    <div className="loading"><div className="spinner" /><div>Loading…</div></div>
+                ) : (
+                    <>
+                        <div className="registry-toolbar">
+                            <span className="registry-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                            <button className="btn btn-primary btn-sm" onClick={() => { setShowAdd(!showAdd); setEditing(null); }}>
+                                {showAdd ? '✕ Cancel' : `＋ ${addLabel}`}
+                            </button>
+                        </div>
+                        {showAdd && <div className="panel" style={{ marginBottom: '1rem' }}><FormComponent onSave={handleAdd} onCancel={() => setShowAdd(false)} saveLabel="💾 Add" /></div>}
+                        {editing && (
+                            <div className="panel" style={{ marginBottom: '1rem' }}>
+                                <div className="panel-title"><span className="icon">✏️</span> Editing "{editing.name}"</div>
+                                <FormComponent initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="💾 Save Changes" />
+                            </div>
+                        )}
+                        {items.length === 0 && !showAdd ? (
+                            <div className="panel"><div className="empty"><div className="emoji">📭</div>{emptyMsg}</div></div>
+                        ) : (
+                            <div className="server-list">
+                                {items.map(item => (
+                                    <CardComponent key={item.id || item.name} item={item} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} />
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        );
+    };
+}
+
+/* ===== Concrete registry pages ===== */
+
+const GlobalSkillsPage = makeGlobalRegistryPage({
+    title: '🧠 Global Skills',
+    subtitle: 'AI skills and system prompts available globally across all projects',
+    emptyMsg: 'No skills in the global registry yet.',
+    addLabel: 'Add Skill',
+    FormComponent: SkillForm,
+    CardComponent: SkillCard,
+    getItems: (scope, proj) => api.getSkills(scope, proj),
+    addItem: (data) => api.addSkill(data),
+    removeItem: (id, scope, proj) => api.removeSkill(id, scope, proj),
+    updateItem: (_id, data) => api.addSkill(data), // backend upserts on duplicate name
+});
+
+const ProjectSkillsPage = makeProjectRegistryPage({
+    title: '📁 Project Skills',
+    subtitle: 'AI skills scoped to a specific project',
+    emptyMsg: "No skills in this project's registry yet.",
+    addLabel: 'Add Skill',
+    FormComponent: SkillForm,
+    CardComponent: SkillCard,
+    getItems: (scope, proj) => api.getSkills(scope, proj),
+    addItem: (data) => api.addSkill(data),
+    removeItem: (id, scope, proj) => api.removeSkill(id, scope, proj),
+    updateItem: (_id, data) => api.addSkill(data),
+});
+
+const GlobalWorkflowsPage = makeGlobalRegistryPage({
+    title: '🔁 Global Workflows',
+    subtitle: 'Reusable multi-step workflows available globally',
+    emptyMsg: 'No workflows in the global registry yet.',
+    addLabel: 'Add Workflow',
+    FormComponent: WorkflowForm,
+    CardComponent: WorkflowCard,
+    getItems: (scope, proj) => api.getWorkflows(scope, proj),
+    addItem: (data) => api.addWorkflow(data),
+    removeItem: (id, scope, proj) => api.removeWorkflow(id, scope, proj),
+    updateItem: (_id, data) => api.addWorkflow(data),
+});
+
+const ProjectWorkflowsPage = makeProjectRegistryPage({
+    title: '📁 Project Workflows',
+    subtitle: 'Workflows scoped to a specific project',
+    emptyMsg: "No workflows in this project's registry yet.",
+    addLabel: 'Add Workflow',
+    FormComponent: WorkflowForm,
+    CardComponent: WorkflowCard,
+    getItems: (scope, proj) => api.getWorkflows(scope, proj),
+    addItem: (data) => api.addWorkflow(data),
+    removeItem: (id, scope, proj) => api.removeWorkflow(id, scope, proj),
+    updateItem: (_id, data) => api.addWorkflow(data),
+});
+
+const GlobalLlmProvidersPage = makeGlobalRegistryPage({
+    title: '🤖 Global LLM Providers',
+    subtitle: 'LLM provider configurations available globally across all projects',
+    emptyMsg: 'No LLM providers in the global registry yet.',
+    addLabel: 'Add Provider',
+    FormComponent: LlmProviderForm,
+    CardComponent: LlmProviderCard,
+    getItems: (scope, proj) => api.getLlmProviders(scope, proj),
+    addItem: (data) => api.addLlmProvider(data),
+    removeItem: (id, scope, proj) => api.removeLlmProvider(id, scope, proj),
+    updateItem: (_id, data) => api.addLlmProvider(data),
+});
+
+const ProjectLlmProvidersPage = makeProjectRegistryPage({
+    title: '📁 Project LLM Providers',
+    subtitle: 'LLM provider configurations scoped to a specific project',
+    emptyMsg: "No LLM providers in this project's registry yet.",
+    addLabel: 'Add Provider',
+    FormComponent: LlmProviderForm,
+    CardComponent: LlmProviderCard,
+    getItems: (scope, proj) => api.getLlmProviders(scope, proj),
+    addItem: (data) => api.addLlmProvider(data),
+    removeItem: (id, scope, proj) => api.removeLlmProvider(id, scope, proj),
+    updateItem: (_id, data) => api.addLlmProvider(data),
+});
 
 /* ===== Hash Router ===== */
 
@@ -1323,25 +1771,89 @@ function useHashRoute() {
 
 /* ===== Nav Bar ===== */
 
+const NAV_SECTIONS = [
+    { id: 'dashboard', label: '⚡ Dashboard', defaultHash: '#/' },
+    {
+        id: 'servers',
+        label: '🔌 MCP Servers',
+        defaultHash: '#/registry/global',
+        links: [
+            { hash: '#/registry/global', label: '🌐 Global' },
+            { hash: '#/registry/project', label: '📁 Project' },
+            { hash: '#/registry/browse', label: '🔍 Browse MCP' },
+        ],
+    },
+    {
+        id: 'skills',
+        label: '🧠 Skills',
+        defaultHash: '#/registry/skills/global',
+        links: [
+            { hash: '#/registry/skills/global', label: '🌐 Global' },
+            { hash: '#/registry/skills/project', label: '📁 Project' },
+        ],
+    },
+    {
+        id: 'workflows',
+        label: '🔁 Workflows',
+        defaultHash: '#/registry/workflows/global',
+        links: [
+            { hash: '#/registry/workflows/global', label: '🌐 Global' },
+            { hash: '#/registry/workflows/project', label: '📁 Project' },
+        ],
+    },
+    {
+        id: 'llm',
+        label: '🤖 LLM Providers',
+        defaultHash: '#/registry/llm/global',
+        links: [
+            { hash: '#/registry/llm/global', label: '🌐 Global' },
+            { hash: '#/registry/llm/project', label: '📁 Project' },
+        ],
+    },
+];
+
+function hashToSection(hash) {
+    if (hash === '#/' || hash === '') return 'dashboard';
+    if (hash.startsWith('#/registry/skills')) return 'skills';
+    if (hash.startsWith('#/registry/workflows')) return 'workflows';
+    if (hash.startsWith('#/registry/llm')) return 'llm';
+    if (hash.startsWith('#/registry')) return 'servers';
+    return 'dashboard';
+}
+
 function NavBar({ currentHash }) {
-    const links = [
-        { hash: '#/', label: '⚡ Dashboard' },
-        { hash: '#/registry/global', label: '🌐 Global Registry' },
-        { hash: '#/registry/project', label: '📁 Project Registry' },
-        { hash: '#/registry/browse', label: '🔍 Browse MCP Registry' },
-    ];
+    const activeSection = hashToSection(currentHash);
+    const section = NAV_SECTIONS.find(s => s.id === activeSection);
 
     return (
         <nav className="nav-bar">
-            {links.map(l => (
-                <a
-                    key={l.hash}
-                    href={l.hash}
-                    className={`nav-link${currentHash === l.hash ? ' active' : ''}`}
-                >
-                    {l.label}
-                </a>
-            ))}
+            {/* Top tier — section selector */}
+            <div className="nav-tier nav-tier-top">
+                {NAV_SECTIONS.map(s => (
+                    <a
+                        key={s.id}
+                        href={s.defaultHash}
+                        className={`nav-section-tab${activeSection === s.id ? ' active' : ''}`}
+                    >
+                        {s.label}
+                    </a>
+                ))}
+            </div>
+
+            {/* Bottom tier — sub-links (hidden for Dashboard) */}
+            {section?.links && (
+                <div className="nav-tier nav-tier-sub">
+                    {section.links.map(l => (
+                        <a
+                            key={l.hash}
+                            href={l.hash}
+                            className={`nav-sub-link${currentHash === l.hash ? ' active' : ''}`}
+                        >
+                            {l.label}
+                        </a>
+                    ))}
+                </div>
+            )}
         </nav>
     );
 }
@@ -1403,28 +1915,36 @@ export default function App() {
         }
     };
 
+    const sharedProjectProps = { projects, addToast, onAddProject: handleAddProject, onRemoveProject: handleRemoveProject };
+
     let page;
     switch (route) {
         case '#/registry/global':
             page = <GlobalRegistryPage addToast={addToast} />;
             break;
         case '#/registry/project':
-            page = (
-                <ProjectRegistryPage
-                    projects={projects}
-                    addToast={addToast}
-                    onAddProject={handleAddProject}
-                    onRemoveProject={handleRemoveProject}
-                />
-            );
+            page = <ProjectRegistryPage {...sharedProjectProps} />;
             break;
         case '#/registry/browse':
-            page = (
-                <McpRegistryBrowserPage
-                    addToast={addToast}
-                    projects={projects}
-                />
-            );
+            page = <McpRegistryBrowserPage addToast={addToast} projects={projects} />;
+            break;
+        case '#/registry/skills/global':
+            page = <GlobalSkillsPage addToast={addToast} />;
+            break;
+        case '#/registry/skills/project':
+            page = <ProjectSkillsPage {...sharedProjectProps} />;
+            break;
+        case '#/registry/workflows/global':
+            page = <GlobalWorkflowsPage addToast={addToast} />;
+            break;
+        case '#/registry/workflows/project':
+            page = <ProjectWorkflowsPage {...sharedProjectProps} />;
+            break;
+        case '#/registry/llm/global':
+            page = <GlobalLlmProvidersPage addToast={addToast} />;
+            break;
+        case '#/registry/llm/project':
+            page = <ProjectLlmProvidersPage {...sharedProjectProps} />;
             break;
         default:
             page = (
