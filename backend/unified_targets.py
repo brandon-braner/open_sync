@@ -54,6 +54,14 @@ def get_llm_targets() -> list[dict[str, Any]]:
     return result
 
 
+def get_agent_targets() -> list[dict[str, Any]]:
+    """Return flat agent target dicts (all scopes), sorted by display_name."""
+    result: list[dict[str, Any]] = []
+    for integration in ALL_INTEGRATIONS:
+        result.extend(integration.agent_dicts())
+    return sorted(result, key=lambda t: t["display_name"].lower())
+
+
 def get_all_tool_ids() -> list[str]:
     """Return list of all canonical integration base IDs."""
     return [i.id for i in ALL_INTEGRATIONS]

@@ -59,4 +59,10 @@ opencode = Integration(
         "global": ScopedConfig(config_path="~/.config/opencode/opencode.json"),
         "project": ScopedConfig(config_path="opencode.json"),
     },
+    agent={
+        "global": ScopedConfig(config_path="~/.config/opencode/agents/", native="true"),
+        "project": ScopedConfig(
+            config_path="<project>/.opencode/agents/", native="true"
+        ),
+    },
 )

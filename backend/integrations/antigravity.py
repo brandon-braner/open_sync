@@ -38,4 +38,8 @@ antigravity = Integration(
             config_path="<project>/.agents/workflows/", native="true"
         ),
     },
+    agent={
+        "global": ScopedConfig(config_path="~/.agents/agents/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.agents/agents/", native="true"),
+    },
 )

@@ -91,6 +91,18 @@ CREATE TABLE IF NOT EXISTS llm_providers (
     base_url TEXT,
     UNIQUE (name, scope, project)
 );
+
+CREATE TABLE IF NOT EXISTS agents (
+    id          TEXT NOT NULL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    scope       TEXT NOT NULL DEFAULT 'global',
+    project     TEXT NOT NULL DEFAULT '',
+    description TEXT,
+    content     TEXT,
+    model       TEXT,
+    tools       TEXT,
+    UNIQUE (name, scope, project)
+);
 """
 
 

@@ -46,6 +46,7 @@ class Integration(BaseModel):
     skill_support: bool = True
     workflow_support: bool = True
     llm_support: bool = True
+    agent_support: bool = True
 
     # Each dict maps scope string ("global" or "project") → ScopedConfig.
     # Omitting a key means the tool is hidden from that page.
@@ -53,6 +54,7 @@ class Integration(BaseModel):
     skill: dict[str, ScopedConfig] = Field(default_factory=dict)
     workflow: dict[str, ScopedConfig] = Field(default_factory=dict)
     llm: dict[str, ScopedConfig] = Field(default_factory=dict)
+    agent: dict[str, ScopedConfig] = Field(default_factory=dict)
 
     model_config = {"extra": "forbid"}
 
@@ -127,4 +129,20 @@ class Integration(BaseModel):
                 "category": self.category,
             }
             for scope, cfg in self.llm.items()
+        ]
+
+    def agent_dicts(self) -> list[dict[str, Any]]:
+        if not self.agent_support:
+            return []
+        return [
+            {
+                "id": f"{self.id}_{scope}",
+                "display_name": self.display_name,
+                "config_path": cfg.config_path,
+                "scope": scope,
+                "color": self.color,
+                "native": cfg.native,
+                "category": self.category,
+            }
+            for scope, cfg in self.agent.items()
         ]

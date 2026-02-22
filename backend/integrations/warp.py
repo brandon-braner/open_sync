@@ -23,6 +23,7 @@ warp = Integration(
     category="desktop",
     mcp_support=False,
     llm_support=False,
+    agent_support=False,
     skill={
         "global": ScopedConfig(config_path="~/.warp/skills/", native="true"),
         "project": ScopedConfig(config_path="<project>/.warp/skills/", native="true"),

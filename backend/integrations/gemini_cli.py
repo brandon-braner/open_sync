@@ -50,4 +50,8 @@ gemini_cli = Integration(
         "global": ScopedConfig(config_path="~/.gemini/settings.json"),
         "project": ScopedConfig(config_path=".gemini/settings.json"),
     },
+    agent={
+        "global": ScopedConfig(config_path="~/.gemini/agents/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.gemini/agents/", native="true"),
+    },
 )

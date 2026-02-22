@@ -15,9 +15,11 @@ import server_registry
 import skill_registry
 import workflow_registry
 import llm_provider_registry
+import agent_registry
 import llm_provider_discovery
 import skill_discovery
 import workflow_discovery
+import agent_discovery
 import project_importer
 from config_manager import (
     discover_all_servers,
@@ -40,6 +42,7 @@ from models import (
     Skill,
     Workflow,
     LlmProvider,
+    Agent,
 )
 
 router = APIRouter(prefix="/api")
@@ -922,3 +925,97 @@ def commit_imported_artifacts(req: _CommitImportRequest):
     """Save selected artifacts into the skill / workflow registries."""
     items = [i.model_dump() for i in req.items]
     return project_importer.commit_artifacts(items, req.scope, req.project_name)
+
+
+# ---- Agents ----------------------------------------------------------------
+
+
+@router.get("/registry/agents", response_model=list[Agent])
+def list_registry_agents(
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    return agent_registry.list_agents(scope, project_name)
+
+
+@router.post("/registry/agents", response_model=Agent)
+def add_registry_agent(req: dict):
+    a = Agent(
+        name=req.get("name"),
+        description=req.get("description"),
+        content=req.get("content", ""),
+        model=req.get("model"),
+        tools=req.get("tools"),
+        sources=[],
+    )
+    return agent_registry.add_agent(
+        a, req.get("scope", "global"), req.get("project_name")
+    )
+
+
+@router.delete("/registry/agents/{agent_id}")
+def remove_registry_agent(
+    agent_id: str,
+    scope: str = Query("global"),
+    project_name: Optional[str] = Query(None),
+):
+    existing = agent_registry.get_agent_by_id(agent_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent_registry.remove_agent(existing.name, scope, project_name)
+    return {"message": "Agent removed"}
+
+
+class _ImportAgentRequest(pydantic.BaseModel):
+    agent_id: str
+    project_name: str
+
+
+@router.post("/registry/agents/import", response_model=Agent)
+def import_agent_from_global(req: _ImportAgentRequest):
+    """Copy an agent from the global registry into a project's registry."""
+    global_agent = agent_registry.get_agent_by_id(req.agent_id)
+    if global_agent is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agent '{req.agent_id}' not found in global registry",
+        )
+    global_agent.id = None  # fresh UUID for the project copy
+    return agent_registry.add_agent(global_agent, "project", req.project_name)
+
+
+# ---- Agents sync -----------------------------------------------------------
+
+
+@router.get("/registry/agents/discover")
+def discover_agents_from_configs(project_path: Optional[str] = None):
+    """Discover agents from global AI tool agent directories (and optionally a project)."""
+    return agent_discovery.discover_all_agents(project_path=project_path)
+
+
+@router.get("/registry/agents/targets")
+def list_agent_targets():
+    """Return all agent write targets."""
+    return agent_discovery.list_agent_targets()
+
+
+class _SyncAgentRequest(pydantic.BaseModel):
+    agent_id: str
+    target_ids: list[str]
+    project_path: Optional[str] = None
+
+
+@router.post("/registry/agents/sync")
+def sync_agent_to_targets(req: _SyncAgentRequest):
+    """Push a registered Agent into one or more agent directories."""
+    agent = agent_registry.get_agent_by_id(req.agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    results = [
+        {
+            "target_id": tid,
+            **agent_discovery.write_agent_to_target(agent, tid, req.project_path),
+        }
+        for tid in req.target_ids
+    ]
+    return {"results": results}

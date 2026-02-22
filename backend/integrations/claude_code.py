@@ -36,4 +36,8 @@ claude_code = Integration(
         "global": ScopedConfig(config_path="~/.claude.json"),
         "project": ScopedConfig(config_path=".claude/settings.json"),
     },
+    agent={
+        "global": ScopedConfig(config_path="~/.claude/agents/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.claude/agents/", native="true"),
+    },
 )

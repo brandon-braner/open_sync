@@ -5,6 +5,7 @@ This guide explains how to add support for a new AI tool or editor to Open Sync.
 ## Overview
 
 Integrations define how Open Sync reads and writes configuration for different AI tools. Each integration specifies:
+
 - Where the tool stores its configuration files
 - What features it supports (MCP, Skills, Workflows, LLM)
 - The format of its configuration files
@@ -39,6 +40,7 @@ from integrations.base import Integration, ScopedConfig
     skill_support=True,
     workflow_support=True,
     llm_support=True,
+    agent_support=True,
     
     # Feature configurations
     mcp={{
@@ -48,6 +50,7 @@ from integrations.base import Integration, ScopedConfig
     skill={{"global": ScopedConfig(...), "project": ...}},
     workflow={{"global": ScopedConfig(...), "project": ...}},
     llm={{"global": ScopedConfig(...), "project": ...}},
+    agent={{"global": ScopedConfig(...), "project": ...}},
 )
 ```
 
@@ -78,10 +81,12 @@ ALL_INTEGRATIONS: list[Integration] = [
 | `skill_support` | bool | Supports skills |
 | `workflow_support` | bool | Supports workflows |
 | `llm_support` | bool | Supports LLM providers |
+| `agent_support` | bool | Supports agents / subagents |
 | `mcp` | dict | MCP config scopes |
 | `skill` | dict | Skill config scopes |
 | `workflow` | dict | Workflow config scopes |
 | `llm` | dict | LLM config scopes |
+| `agent` | dict | Agent config scopes |
 
 ### ScopedConfig Fields
 
@@ -142,6 +147,44 @@ example = Integration(
         ),
     },
 )
+```
+
+### Agent Support (Markdown files in directories)
+
+```python
+example_with_agents = Integration(
+    id="example-agents",
+    display_name="Example With Agents",
+    color="#9B59B6",
+    category="cli",
+    mcp_support=False,
+    skill_support=False,
+    workflow_support=False,
+    llm_support=False,
+    mcp={},
+    agent={
+        "global": ScopedConfig(
+            config_path="~/.example/agents/",
+            native="true",
+        ),
+        "project": ScopedConfig(
+            config_path="<project>/.example/agents/",
+            native="true",
+        ),
+    },
+)
+```
+
+Agent directories contain `.md` files with YAML frontmatter:
+
+```markdown
+---
+name: My Agent
+description: A helpful coding assistant
+model: gpt-4
+tools: file_read,file_write
+---
+You are a helpful coding assistant that specializes in Python.
 ```
 
 ### MCP Only (Global)
