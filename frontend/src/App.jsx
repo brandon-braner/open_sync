@@ -614,8 +614,7 @@ function GlobalRegistryPage({ addToast }) {
 
 /* ===== Project Registry Page ===== */
 
-function ProjectRegistryPage({ projects, addToast, onAddProject, onRemoveProject }) {
-    const [selectedProject, setSelectedProject] = useState(null);
+function ProjectRegistryPage({ projects, addToast, onAddProject, onRemoveProject, selectedProject, setSelectedProject }) {
     const [servers, setServers] = useState([]);
     const [globalServers, setGlobalServers] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -847,14 +846,12 @@ function ProjectRegistryPage({ projects, addToast, onAddProject, onRemoveProject
 
 /* ===== Official MCP Registry Browser ===== */
 
-function McpRegistryBrowserPage({ addToast, projects }) {
+function McpRegistryBrowserPage({ addToast, projects, scope, setScope, selectedProject, setSelectedProject }) {
     const [results, setResults] = useState([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [scope, setScope] = useState('global');
-    const [selectedProject, setSelectedProject] = useState(null);
     const [importing, setImporting] = useState(new Set());
     const [imported, setImported] = useState(new Set());
 
@@ -2166,8 +2163,7 @@ function GlobalSkillsPage({ addToast }) {
     );
 }
 
-function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject }) {
-    const [selectedProject, setSelectedProject] = useState(null);
+function ProjectSkillsPage({ projects, addToast, onAddProject, onRemoveProject, selectedProject, setSelectedProject }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
@@ -2338,8 +2334,7 @@ function GlobalWorkflowsPage({ addToast }) {
     );
 }
 
-function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProject }) {
-    const [selectedProject, setSelectedProject] = useState(null);
+function ProjectWorkflowsPage({ projects, addToast, onAddProject, onRemoveProject, selectedProject, setSelectedProject }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
@@ -2651,8 +2646,7 @@ function GlobalLlmProvidersPage({ addToast }) {
 }
 
 
-function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemoveProject }) {
-    const [selectedProject, setSelectedProject] = useState(null);
+function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRemoveProject, selectedProject, setSelectedProject }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
@@ -2861,9 +2855,24 @@ function hashToSection(hash) {
     return 'dashboard';
 }
 
+// Returns 'project' if the current hash is a project sub-page, otherwise 'global'
+function hashToSubScope(hash) {
+    if (hash.endsWith('/project')) return 'project';
+    return 'global';
+}
+
 function NavBar({ currentHash }) {
     const activeSection = hashToSection(currentHash);
+    const subScope = hashToSubScope(currentHash); // 'global' or 'project'
     const section = NAV_SECTIONS.find(s => s.id === activeSection);
+
+    // When clicking a section tab, preserve the current global/project sub-scope
+    const getDestHash = (s) => {
+        if (!s.links) return s.defaultHash;
+        // Find a link matching the current sub-scope
+        const match = s.links.find(l => l.hash.endsWith('/' + subScope));
+        return match ? match.hash : s.defaultHash;
+    };
 
     return (
         <nav className="nav-bar">
@@ -2872,7 +2881,7 @@ function NavBar({ currentHash }) {
                 {NAV_SECTIONS.map(s => (
                     <a
                         key={s.id}
-                        href={s.defaultHash}
+                        href={getDestHash(s)}
                         className={`nav-section-tab${activeSection === s.id ? ' active' : ''}`}
                     >
                         {s.label}
@@ -2929,6 +2938,12 @@ export default function App() {
 
     useEffect(() => { loadProjects(); }, [loadProjects]);
 
+    // Keep scope in sync with the URL — navigating to a /project URL sets scope to project
+    useEffect(() => {
+        const subScope = hashToSubScope(route);
+        setScope(subScope);
+    }, [route]);
+
     const handleAddProject = async (name, path) => {
         try {
             const result = await api.addProject(name, path);
@@ -2955,7 +2970,10 @@ export default function App() {
         }
     };
 
-    const sharedProjectProps = { projects, addToast, onAddProject: handleAddProject, onRemoveProject: handleRemoveProject };
+    const sharedProjectProps = {
+        projects, addToast, onAddProject: handleAddProject, onRemoveProject: handleRemoveProject,
+        selectedProject, setSelectedProject, scope, setScope,
+    };
 
     let page;
     switch (route) {
@@ -2966,7 +2984,7 @@ export default function App() {
             page = <ProjectRegistryPage {...sharedProjectProps} />;
             break;
         case '#/registry/browse':
-            page = <McpRegistryBrowserPage addToast={addToast} projects={projects} />;
+            page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />;
             break;
         case '#/registry/skills/global':
             page = <GlobalSkillsPage addToast={addToast} />;
