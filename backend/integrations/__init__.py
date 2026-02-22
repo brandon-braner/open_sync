@@ -14,7 +14,7 @@ from integrations.opencode import opencode
 from integrations.claude_code import claude_code
 from integrations.claude_desktop import claude_desktop
 from integrations.warp import warp
-from integrations.vscode import vscode
+from integrations.vscode import vscode_github_copilot
 from integrations.windsurf import windsurf
 from integrations.gemini_cli import gemini_cli
 from integrations.cursor import cursor
@@ -26,7 +26,7 @@ ALL_INTEGRATIONS: list[Integration] = [
     claude_code,
     claude_desktop,
     warp,
-    vscode,
+    vscode_github_copilot,
     windsurf,
     gemini_cli,
     cursor,

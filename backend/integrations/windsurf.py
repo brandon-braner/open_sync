@@ -28,6 +28,7 @@ windsurf = Integration(
     display_name="Windsurf",
     color="#1ABC9C",
     category="editor",
+    agent_support=False,
     mcp={
         "global": ScopedConfig(
             config_path="~/.codeium/windsurf/mcp_config.json", root_key="mcpServers"

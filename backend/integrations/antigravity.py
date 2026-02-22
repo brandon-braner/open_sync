@@ -38,4 +38,5 @@ antigravity = Integration(
             config_path="<project>/.agents/workflows/", native="true"
         ),
     },
+    agent_support=False,
 )

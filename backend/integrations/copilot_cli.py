@@ -38,4 +38,8 @@ copilot_cli = Integration(
         "global": ScopedConfig(config_path="~/.copilot/skills/", native="true"),
         "project": ScopedConfig(config_path="<project>/.github/skills/", native="true"),
     },
+    agent={
+        "global": ScopedConfig(config_path="~/.copilot/agents/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.github/agents/", native="true"),
+    },
 )

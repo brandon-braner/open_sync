@@ -74,6 +74,23 @@ class LlmProvider(BaseModel):
     )
 
 
+class Agent(BaseModel):
+    """Canonical representation of a custom Agent / Subagent."""
+
+    id: Optional[str] = Field(None, description="Stable internal UUID")
+    name: str = Field(..., description="Unique agent name / key")
+    description: Optional[str] = Field(None, description="Short description")
+    content: Optional[str] = Field(
+        None, description="The agent instructions/prompt (markdown)"
+    )
+    model: Optional[str] = Field(None, description="Preferred model identifier")
+    tools: Optional[str] = Field(None, description="Comma-separated tool permissions")
+    sources: list[str] = Field(
+        default_factory=list,
+        description="Which targets this agent was discovered in",
+    )
+
+
 class TargetStatus(BaseModel):
     """Status information for a sync target."""
 

@@ -21,6 +21,7 @@ claude_desktop = Integration(
     skill_support=False,
     workflow_support=False,
     llm_support=False,
+    agent_support=False,
     mcp={
         "global": ScopedConfig(
             config_path="~/Library/Application Support/Claude/claude_desktop_config.json",

@@ -7,10 +7,17 @@
 #   Access via: Cursor Settings → MCP
 #   Ref: https://docs.cursor.com/context/model-context-protocol
 #
-# Skills / Workflows (Cursor Rules — .mdc files):
-#   Global:  ~/.cursor/rules/                (rules applied across all projects)
-#   Project: <project>/.cursor/rules/        (per-project rules, version-controlled)
-#   Ref: https://docs.cursor.com/context/rules-for-ai
+# Skills (Agent Skills — SKILL.md in subdirectories):
+#   Global:  ~/.cursor/skills/               (skills available across all projects)
+#   Project: <project>/.cursor/skills/       (per-project skills, version-controlled)
+#   Each skill is a subdirectory with a SKILL.md file.
+#   Ref: https://cursor.com/docs/context/skills
+#
+# Workflows (Cursor Commands — .md files):
+#   Global:  ~/.cursor/commands/             (commands available across all projects)
+#   Project: <project>/.cursor/commands/     (per-project commands, version-controlled)
+#   Triggered via "/" prefix in chat.
+#   Ref: https://cursor.com/docs/context/commands
 #
 # LLM / Model settings:
 #   Global: ~/.cursor/  (read-only — managed through Cursor Settings UI)
@@ -23,19 +30,23 @@ cursor = Integration(
     display_name="Cursor",
     color="#00D4AA",
     category="editor",
+    llm_support=False,
     mcp={
         "global": ScopedConfig(config_path="~/.cursor/mcp.json", root_key="mcpServers"),
         "project": ScopedConfig(config_path=".cursor/mcp.json", root_key="mcpServers"),
     },
     skill={
-        "global": ScopedConfig(config_path="~/.cursor/rules/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.cursor/rules/", native="true"),
+        "global": ScopedConfig(config_path="~/.cursor/skills/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.cursor/skills/", native="true"),
     },
     workflow={
-        "global": ScopedConfig(config_path="~/.cursor/rules/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.cursor/rules/", native="true"),
+        "global": ScopedConfig(config_path="~/.cursor/commands/", native="true"),
+        "project": ScopedConfig(
+            config_path="<project>/.cursor/commands/", native="true"
+        ),
     },
-    llm={
-        "global": ScopedConfig(config_path="~/.cursor/", read_only=True),
+    agent={
+        "global": ScopedConfig(config_path="~/.cursor/agents/", native="true"),
+        "project": ScopedConfig(config_path="<project>/.cursor/agents/", native="true"),
     },
 )
