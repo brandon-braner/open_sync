@@ -103,6 +103,14 @@ CREATE TABLE IF NOT EXISTS agents (
     tools       TEXT,
     UNIQUE (name, scope, project)
 );
+
+CREATE TABLE IF NOT EXISTS remote_servers (
+    id         TEXT NOT NULL PRIMARY KEY,
+    name       TEXT NOT NULL,
+    url        TEXT NOT NULL UNIQUE,
+    api_key    TEXT,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -203,10 +211,25 @@ def init_db() -> None:
         _create_tables(conn)
         _ensure_id_column(conn)
         _migrate_steps_to_content(conn)
+        _ensure_remote_servers_table(conn)
         if _tables_empty(conn):
             _migrate_from_json(conn)
     finally:
         conn.close()
+
+
+def _ensure_remote_servers_table(conn: sqlite3.Connection) -> None:
+    """Create the remote_servers table if it doesn't exist yet (safe migration)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS remote_servers (
+            id         TEXT NOT NULL PRIMARY KEY,
+            name       TEXT NOT NULL,
+            url        TEXT NOT NULL UNIQUE,
+            api_key    TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
 
 
 def _migrate_steps_to_content(conn: sqlite3.Connection) -> None:

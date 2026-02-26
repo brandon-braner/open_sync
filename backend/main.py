@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api import router
 from database import init_db
+import remote_sync
 
 # Initialize SQLite database (creates tables, migrates JSON data on first run)
 init_db()
@@ -18,20 +21,18 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS – allow the Vite dev server during development
+# CORS – allow the Vite dev server during development and any remote OpenSync
+# client that needs to reach /api/remote/catalog from a different origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(router)
+app.include_router(remote_sync.router)
 
-
-# Serve built frontend in production (if the dist folder exists)
-import os
 
 _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(_frontend_dist):
@@ -41,7 +42,9 @@ if os.path.isdir(_frontend_dist):
 def run():
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
+    port = int(os.environ.get("OPENSYNC_PORT", 8001))
+    host = os.environ.get("OPENSYNC_HOST", "0.0.0.0")
+    uvicorn.run("main:app", host=host, port=port, reload=True)
 
 
 if __name__ == "__main__":
