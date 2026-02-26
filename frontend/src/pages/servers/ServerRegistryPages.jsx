@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
 import { ServerForm } from '../../components/forms/ServerForm';
 import { RegistryServerCard } from '../../components/cards/RegistryServerCard';
+import { DirectoryPicker } from '../../components/ui/DirectoryPicker';
 
 export function GlobalRegistryPage({ addToast }) {
     const [servers, setServers] = useState([]);
@@ -269,8 +270,8 @@ export function ProjectRegistryPage({ projects, addToast, onAddProject, onRemove
             {showAddProject && (
                 <form className="add-project-form" onSubmit={handleAddProject}>
                     <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
-                    <div className="dir-picker-wrap" style={{ flex: 1 }}>
-                        <input type="text" className="dir-path-input" placeholder="~/code/my-project" value={newPath} onChange={(e) => setNewPath(e.target.value)} />
+                    <div style={{ flex: 1 }}>
+                        <DirectoryPicker value={newPath} onChange={setNewPath} />
                     </div>
                     <button type="submit" className="btn btn-primary btn-sm">Add</button>
                 </form>

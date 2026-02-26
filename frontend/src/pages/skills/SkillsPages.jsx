@@ -4,6 +4,7 @@ import { SkillForm } from '../../components/forms/SkillForm';
 import { SkillCard } from '../../components/cards/SkillCard';
 import { ImportFromProjectModal } from '../../components/modals/ImportFromProjectModal';
 import { ImportItemFromGlobalModal } from '../../components/modals/ImportItemFromGlobalModal';
+import { DirectoryPicker } from '../../components/ui/DirectoryPicker';
 
 export function GlobalSkillsPage({ addToast, projects }) {
     const [items, setItems] = useState([]);
@@ -152,8 +153,8 @@ export function ProjectSkillsPage({ projects, addToast, onAddProject, onRemovePr
             {showAddProject && (
                 <form className="add-project-form" onSubmit={handleAddProject}>
                     <input type="text" placeholder="Project name" value={newName} onChange={(e) => setNewName(e.target.value)} className="add-project-name" required />
-                    <div className="dir-picker-wrap" style={{ flex: 1 }}>
-                        <input type="text" className="dir-path-input" placeholder="~/code/my-project" value={newPath} onChange={(e) => setNewPath(e.target.value)} />
+                    <div style={{ flex: 1 }}>
+                        <DirectoryPicker value={newPath} onChange={setNewPath} />
                     </div>
                     <button type="submit" className="btn btn-primary btn-sm">Add</button>
                 </form>
