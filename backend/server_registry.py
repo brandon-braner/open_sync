@@ -28,6 +28,7 @@ def _row_to_server(row) -> McpServer:
         url=row["url"],
         headers=json.loads(row["headers"]) if row["headers"] else {},
         sources=[SOURCE_TAG],
+        notes=row["notes"] if "notes" in row.keys() else "",
     )
 
 
@@ -107,7 +108,7 @@ def add_server(
             server_id = existing["id"]
             conn.execute(
                 """UPDATE servers SET command = ?, args = ?, env = ?,
-                   type = ?, url = ?, headers = ? WHERE id = ?""",
+                   type = ?, url = ?, headers = ?, notes = ? WHERE id = ?""",
                 (
                     server.command,
                     json.dumps(server.args) if server.args else "[]",
@@ -115,14 +116,15 @@ def add_server(
                     server.type,
                     server.url,
                     json.dumps(server.headers) if server.headers else "{}",
+                    server.notes,
                     server_id,
                 ),
             )
         else:
             conn.execute(
                 """INSERT INTO servers
-                   (id, name, scope, project, command, args, env, type, url, headers)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (id, name, scope, project, command, args, env, type, url, headers, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     server_id,
                     server.name,
@@ -134,6 +136,7 @@ def add_server(
                     server.type,
                     server.url,
                     json.dumps(server.headers) if server.headers else "{}",
+                    server.notes,
                 ),
             )
         conn.commit()

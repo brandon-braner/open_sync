@@ -60,7 +60,7 @@ export function GlobalAgentsPage({ addToast, projects }) {
             {editing && <AgentForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="Save Changes" />}
             {items.length === 0 && !showAdd ? <div className="empty-state">No agents in the global registry yet.</div> : (
                 <div className="registry-grid">
-                    {items.map(a => <AgentCard key={a.id} item={a} onEdit={setEditing} onDelete={handleDelete} targets={agentTargets} onPush={handlePush} />)}
+                    {items.map(a => <AgentCard key={a.id} item={a} onEdit={setEditing} onDelete={handleDelete} targets={agentTargets} onPush={handlePush} addToast={addToast} />)}
                 </div>
             )}
         </div>
@@ -171,7 +171,7 @@ export function ProjectAgentsPage({ projects, addToast, onAddProject, onRemovePr
                         <div className="panel"><div className="empty"><div className="emoji">📫</div>No agents in this project's registry yet.</div></div>
                     ) : (
                         <div className="registry-grid">
-                            {items.map(a => <AgentCard key={a.id} item={a} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={agentTargets} onPush={handlePush} />)}
+                            {items.map(a => <AgentCard key={a.id} item={a} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={agentTargets} onPush={handlePush} addToast={addToast} />)}
                         </div>
                     )}
                 </>

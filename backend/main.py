@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 
 from api import router
 from database import init_db
-import remote_sync
 
 # Initialize SQLite database (creates tables, migrates JSON data on first run)
 init_db()
@@ -21,18 +20,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS – allow the Vite dev server during development and any remote OpenSync
-# client that needs to reach /api/remote/catalog from a different origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(router)
-app.include_router(remote_sync.router)
-
 
 _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.isdir(_frontend_dist):

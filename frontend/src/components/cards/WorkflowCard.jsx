@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { PushToRegistryButton } from '../ui/PushToRegistryButton';
 
-export function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
+export function WorkflowCard({ item, onEdit, onDelete, targets, onPush, addToast }) {
     const [showPush, setShowPush] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState(new Set());
     const [pushing, setPushing] = useState(false);
@@ -33,6 +34,7 @@ export function WorkflowCard({ item, onEdit, onDelete, targets, onPush }) {
                         🔄 Sync to…
                     </button>
                 )}
+                <PushToRegistryButton artifactType="workflow" artifactData={item} addToast={addToast} />
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
                 <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
             </div>

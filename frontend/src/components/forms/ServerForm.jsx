@@ -9,6 +9,7 @@ export function ServerForm({ initialData, onSave, onCancel, saveLabel }) {
             ? Object.entries(initialData.env).map(([k, v]) => `${k}=${v}`).join('\n')
             : '',
         url: initialData?.url || '',
+        notes: initialData?.notes || '',
     });
 
     const isEdit = !!initialData?.name;
@@ -34,6 +35,7 @@ export function ServerForm({ initialData, onSave, onCancel, saveLabel }) {
                 )
                 : {},
             url: form.url.trim() || null,
+            notes: form.notes.trim(),
         };
         onSave(data);
     };
@@ -68,6 +70,15 @@ export function ServerForm({ initialData, onSave, onCancel, saveLabel }) {
                     onChange={set('env')}
                     placeholder={"API_KEY=sk-...\nLOG_LEVEL=debug"}
                     rows={3}
+                />
+            </div>
+            <div className="form-group full">
+                <label>Notes / Prerequisites</label>
+                <textarea
+                    value={form.notes}
+                    onChange={set('notes')}
+                    placeholder="e.g. Requires: npm install -g @org/pkg, or uv tool install …"
+                    rows={2}
                 />
             </div>
             <div className="form-actions">

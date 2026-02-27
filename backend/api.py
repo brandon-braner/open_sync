@@ -93,6 +93,7 @@ def add_registry_server(req: AddServerRequest):
         url=req.url,
         headers=req.headers,
         sources=[],
+        notes=req.notes,
     )
     reg_scope = req.scope or "global"
     return server_registry.add_server(srv, reg_scope, req.project_name)
@@ -140,6 +141,7 @@ def update_registry_server(server_id: str, req: UpdateServerRequest):
         url=req.url,
         headers=req.headers,
         sources=[],
+        notes=req.notes,
     )
     return server_registry.add_server(srv, reg_scope, req.project_name)
 
@@ -621,6 +623,7 @@ def add_registry_skill(req: dict):
         description=req.get("description"),
         content=req.get("content", ""),
         sources=[],
+        notes=req.get("notes", ""),
     )
     return skill_registry.add_skill(
         s, req.get("scope", "global"), req.get("project_name")
@@ -676,6 +679,7 @@ def add_registry_workflow(req: dict):
         description=req.get("description"),
         content=req.get("content"),
         sources=[],
+        notes=req.get("notes", ""),
     )
     return workflow_registry.add_workflow(
         w, req.get("scope", "global"), req.get("project_name")
@@ -768,6 +772,7 @@ def add_registry_llm_provider(req: dict):
         api_key=req.get("api_key"),
         base_url=req.get("base_url"),
         sources=[],
+        notes=req.get("notes", ""),
     )
     return llm_provider_registry.add_llm_provider(
         p, req.get("scope", "global"), req.get("project_name")
@@ -947,6 +952,7 @@ def add_registry_agent(req: dict):
         model=req.get("model"),
         tools=req.get("tools"),
         sources=[],
+        notes=req.get("notes", ""),
     )
     return agent_registry.add_agent(
         a, req.get("scope", "global"), req.get("project_name")

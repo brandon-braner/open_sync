@@ -195,6 +195,7 @@ export function GlobalLlmProvidersPage({ addToast }) {
                             onEdit={(it) => { setEditing(it); setShowAdd(false); }}
                             onDelete={handleDelete}
                             onPush={handlePush}
+                            addToast={addToast}
                         />
                     ))}
                 </div>
@@ -343,6 +344,7 @@ export function ProjectLlmProvidersPage({ projects, addToast, onAddProject, onRe
                                     onEdit={(it) => { setEditing(it); setShowAdd(false); }}
                                     onDelete={handleDelete}
                                     onPush={handlePush}
+                                    addToast={addToast}
                                 />
                             ))}
                         </div>

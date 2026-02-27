@@ -29,6 +29,7 @@ class McpServer(BaseModel):
     sources: list[str] = Field(
         default_factory=list, description="Which targets this server was discovered in"
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class Skill(BaseModel):
@@ -41,6 +42,7 @@ class Skill(BaseModel):
     sources: list[str] = Field(
         default_factory=list, description="Which targets this skill was discovered in"
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class Workflow(BaseModel):
@@ -56,6 +58,7 @@ class Workflow(BaseModel):
         default_factory=list,
         description="Which targets this workflow was discovered in",
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class LlmProvider(BaseModel):
@@ -72,6 +75,7 @@ class LlmProvider(BaseModel):
         default_factory=list,
         description="Which targets this provider was discovered in",
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class Agent(BaseModel):
@@ -89,6 +93,7 @@ class Agent(BaseModel):
         default_factory=list,
         description="Which targets this agent was discovered in",
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class TargetStatus(BaseModel):
@@ -149,6 +154,7 @@ class AddServerRequest(BaseModel):
     project_name: Optional[str] = Field(
         None, description="Project name for project scope"
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class RemoveServerRequest(BaseModel):
@@ -173,6 +179,7 @@ class UpdateServerRequest(BaseModel):
     project_name: Optional[str] = Field(
         None, description="Project name for project scope"
     )
+    notes: str = Field("", description="Free-text notes, e.g. install prerequisites")
 
 
 class ImportServerRequest(BaseModel):
@@ -192,40 +199,3 @@ class McpRegistryImportRequest(BaseModel):
     project_name: Optional[str] = Field(
         None, description="Project name for project scope"
     )
-
-
-# ---------------------------------------------------------------------------
-# Remote Sync models
-# ---------------------------------------------------------------------------
-
-
-class RemoteServer(BaseModel):
-    """A registered remote OpenSync server that this instance can sync from."""
-
-    id: Optional[str] = Field(None, description="Stable internal UUID")
-    name: str = Field(..., description="Friendly display name for the remote server")
-    url: str = Field(..., description="Base URL of the remote OpenSync instance (e.g. http://team-server:8001)")
-    api_key: Optional[str] = Field(None, description="Optional Bearer token for authenticated remotes")
-    created_at: Optional[str] = Field(None, description="ISO timestamp of when this was registered")
-
-
-class RemoteCatalog(BaseModel):
-    """The full catalog of publishable global artifacts exposed by a remote OpenSync server."""
-
-    servers: list[McpServer] = Field(default_factory=list)
-    skills: list["Skill"] = Field(default_factory=list)
-    workflows: list["Workflow"] = Field(default_factory=list)
-    agents: list["Agent"] = Field(default_factory=list)
-    llm_providers: list["LlmProvider"] = Field(default_factory=list)
-
-
-class PullRequest(BaseModel):
-    """Request to pull selected artifacts from a remote OpenSync server into the local registry."""
-
-    server_names: list[str] = Field(default_factory=list, description="MCP server names to pull")
-    skill_names: list[str] = Field(default_factory=list, description="Skill names to pull")
-    workflow_names: list[str] = Field(default_factory=list, description="Workflow names to pull")
-    agent_names: list[str] = Field(default_factory=list, description="Agent names to pull")
-    llm_provider_names: list[str] = Field(default_factory=list, description="LLM provider names to pull")
-    scope: str = Field("global", description="Local scope to import into: global or project")
-    project_name: Optional[str] = Field(None, description="Project name when scope=project")

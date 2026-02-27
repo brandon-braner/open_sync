@@ -17,6 +17,7 @@ def _row_to_workflow(row) -> Workflow:
         description=row["description"],
         content=row["content"],
         sources=[SOURCE_TAG],
+        notes=row["notes"] if "notes" in row.keys() else "",
     )
 
 
@@ -89,14 +90,14 @@ def add_workflow(
         if existing:
             workflow_id = existing["id"]
             conn.execute(
-                "UPDATE workflows SET description = ?, content = ? WHERE id = ?",
-                (workflow.description, workflow.content, workflow_id),
+                "UPDATE workflows SET description = ?, content = ?, notes = ? WHERE id = ?",
+                (workflow.description, workflow.content, workflow.notes, workflow_id),
             )
         else:
             conn.execute(
                 """INSERT INTO workflows
-                   (id, name, scope, project, description, content)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   (id, name, scope, project, description, content, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (
                     workflow_id,
                     workflow.name,
@@ -104,6 +105,7 @@ def add_workflow(
                     proj_val,
                     workflow.description,
                     workflow.content,
+                    workflow.notes,
                 ),
             )
         conn.commit()

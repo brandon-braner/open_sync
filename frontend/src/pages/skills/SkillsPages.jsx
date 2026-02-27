@@ -60,7 +60,7 @@ export function GlobalSkillsPage({ addToast, projects }) {
             {editing && <SkillForm initialData={editing} onSave={handleEdit} onCancel={() => setEditing(null)} saveLabel="Save Changes" />}
             {items.length === 0 && !showAdd ? <div className="empty-state">No skills in the global registry yet.</div> : (
                 <div className="registry-grid">
-                    {items.map(s => <SkillCard key={s.id} item={s} onEdit={setEditing} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} />)}
+                    {items.map(s => <SkillCard key={s.id} item={s} onEdit={setEditing} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} addToast={addToast} />)}
                 </div>
             )}
         </div>
@@ -179,7 +179,7 @@ export function ProjectSkillsPage({ projects, addToast, onAddProject, onRemovePr
                         <div className="panel"><div className="empty"><div className="emoji">📫</div>No skills in this project's registry yet.</div></div>
                     ) : (
                         <div className="registry-grid">
-                            {items.map(s => <SkillCard key={s.id} item={s} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} />)}
+                            {items.map(s => <SkillCard key={s.id} item={s} onEdit={(it) => { setEditing(it); setShowAdd(false); }} onDelete={handleDelete} targets={skillTargets} onPush={handlePush} addToast={addToast} />)}
                         </div>
                     )}
                 </>

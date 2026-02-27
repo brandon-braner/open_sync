@@ -19,6 +19,7 @@ def _row_to_agent(row) -> Agent:
         model=row["model"],
         tools=row["tools"],
         sources=[SOURCE_TAG],
+        notes=row["notes"] if "notes" in row.keys() else "",
     )
 
 
@@ -88,14 +89,21 @@ def add_agent(agent: Agent, scope: str = "global", project: str | None = None) -
         if existing:
             agent_id = existing["id"]
             conn.execute(
-                "UPDATE agents SET description = ?, content = ?, model = ?, tools = ? WHERE id = ?",
-                (agent.description, agent.content, agent.model, agent.tools, agent_id),
+                "UPDATE agents SET description = ?, content = ?, model = ?, tools = ?, notes = ? WHERE id = ?",
+                (
+                    agent.description,
+                    agent.content,
+                    agent.model,
+                    agent.tools,
+                    agent.notes,
+                    agent_id,
+                ),
             )
         else:
             conn.execute(
                 """INSERT INTO agents
-                   (id, name, scope, project, description, content, model, tools)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (id, name, scope, project, description, content, model, tools, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     agent_id,
                     agent.name,
@@ -105,6 +113,7 @@ def add_agent(agent: Agent, scope: str = "global", project: str | None = None) -
                     agent.content,
                     agent.model,
                     agent.tools,
+                    agent.notes,
                 ),
             )
         conn.commit()

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS servers (
     type     TEXT,
     url      TEXT,
     headers  TEXT DEFAULT '{}',
+    notes    TEXT NOT NULL DEFAULT '',
     UNIQUE (name, scope, project)
 );
 
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS skills (
     project  TEXT NOT NULL DEFAULT '',
     description TEXT,
     content  TEXT,
+    notes    TEXT NOT NULL DEFAULT '',
     UNIQUE (name, scope, project)
 );
 
@@ -78,6 +80,7 @@ CREATE TABLE IF NOT EXISTS workflows (
     project  TEXT NOT NULL DEFAULT '',
     description TEXT,
     content  TEXT,
+    notes    TEXT NOT NULL DEFAULT '',
     UNIQUE (name, scope, project)
 );
 
@@ -89,6 +92,7 @@ CREATE TABLE IF NOT EXISTS llm_providers (
     provider_type TEXT,
     api_key  TEXT,
     base_url TEXT,
+    notes    TEXT NOT NULL DEFAULT '',
     UNIQUE (name, scope, project)
 );
 
@@ -101,6 +105,7 @@ CREATE TABLE IF NOT EXISTS agents (
     content     TEXT,
     model       TEXT,
     tools       TEXT,
+    notes       TEXT NOT NULL DEFAULT '',
     UNIQUE (name, scope, project)
 );
 
@@ -211,24 +216,22 @@ def init_db() -> None:
         _create_tables(conn)
         _ensure_id_column(conn)
         _migrate_steps_to_content(conn)
-        _ensure_remote_servers_table(conn)
+        _ensure_notes_column(conn)
         if _tables_empty(conn):
             _migrate_from_json(conn)
     finally:
         conn.close()
 
 
-def _ensure_remote_servers_table(conn: sqlite3.Connection) -> None:
-    """Create the remote_servers table if it doesn't exist yet (safe migration)."""
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS remote_servers (
-            id         TEXT NOT NULL PRIMARY KEY,
-            name       TEXT NOT NULL,
-            url        TEXT NOT NULL UNIQUE,
-            api_key    TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
+def _ensure_notes_column(conn: sqlite3.Connection) -> None:
+    """Add `notes` column to artifact tables if missing (migration for existing DBs)."""
+    for table in ("servers", "skills", "workflows", "agents", "llm_providers"):
+        cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        if "notes" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN notes TEXT NOT NULL DEFAULT ''"
+            )
+            logger.info("Added notes column to %s table", table)
     conn.commit()
 
 

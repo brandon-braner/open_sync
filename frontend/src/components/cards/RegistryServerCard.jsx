@@ -1,4 +1,6 @@
-export function RegistryServerCard({ server, onEdit, onDelete }) {
+import { PushToRegistryButton } from '../ui/PushToRegistryButton';
+
+export function RegistryServerCard({ server, onEdit, onDelete, addToast }) {
     const cmdLine = [server.command, ...server.args].filter(Boolean).join(' ');
 
     return (
@@ -13,6 +15,7 @@ export function RegistryServerCard({ server, onEdit, onDelete }) {
                 </div>
             )}
             <div className="server-actions">
+                <PushToRegistryButton artifactType="server" artifactData={server} addToast={addToast} />
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(server)} title="Edit configuration">
                     ✏️ Edit
                 </button>

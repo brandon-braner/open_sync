@@ -18,10 +18,13 @@ def _row_to_llm_provider(row) -> LlmProvider:
         api_key=row["api_key"],
         base_url=row["base_url"],
         sources=[SOURCE_TAG],
+        notes=row["notes"] if "notes" in row.keys() else "",
     )
 
 
-def list_llm_providers(scope: str = "global", project: str | None = None) -> list[LlmProvider]:
+def list_llm_providers(
+    scope: str = "global", project: str | None = None
+) -> list[LlmProvider]:
     conn = get_connection()
     try:
         if scope == "project" and project:
@@ -90,14 +93,20 @@ def add_llm_provider(
         if existing:
             provider_id = existing["id"]
             conn.execute(
-                "UPDATE llm_providers SET provider_type = ?, api_key = ?, base_url = ? WHERE id = ?",
-                (provider.provider_type, provider.api_key, provider.base_url, provider_id),
+                "UPDATE llm_providers SET provider_type = ?, api_key = ?, base_url = ?, notes = ? WHERE id = ?",
+                (
+                    provider.provider_type,
+                    provider.api_key,
+                    provider.base_url,
+                    provider.notes,
+                    provider_id,
+                ),
             )
         else:
             conn.execute(
                 """INSERT INTO llm_providers
-                   (id, name, scope, project, provider_type, api_key, base_url)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (id, name, scope, project, provider_type, api_key, base_url, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     provider_id,
                     provider.name,
@@ -106,6 +115,7 @@ def add_llm_provider(
                     provider.provider_type,
                     provider.api_key,
                     provider.base_url,
+                    provider.notes,
                 ),
             )
         conn.commit()
@@ -116,7 +126,9 @@ def add_llm_provider(
     return provider
 
 
-def remove_llm_provider(name: str, scope: str = "global", project: str | None = None) -> bool:
+def remove_llm_provider(
+    name: str, scope: str = "global", project: str | None = None
+) -> bool:
     conn = get_connection()
     try:
         if scope == "project" and project:

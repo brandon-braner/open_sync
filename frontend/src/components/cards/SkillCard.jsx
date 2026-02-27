@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PushToRegistryButton } from '../ui/PushToRegistryButton';
 
 function escHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -43,7 +44,7 @@ function renderMarkdown(md) {
         .replace(/(<\/blockquote>)<\/p>/g, '$1');
 }
 
-export function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
+export function SkillCard({ item, onEdit, onDelete, targets, onPush, addToast }) {
     const [showPush, setShowPush] = useState(false);
     const [selectedTargets, setSelectedTargets] = useState(new Set());
     const [pushing, setPushing] = useState(false);
@@ -81,6 +82,7 @@ export function SkillCard({ item, onEdit, onDelete, targets, onPush }) {
                         🔄 Sync to…
                     </button>
                 )}
+                <PushToRegistryButton artifactType="skill" artifactData={item} addToast={addToast} />
                 <button className="btn btn-sm btn-ghost btn-edit" onClick={() => onEdit(item)}>✏️ Edit</button>
                 <button className="btn btn-sm btn-ghost btn-delete" onClick={() => onDelete(item.id)}>🗑️ Delete</button>
             </div>

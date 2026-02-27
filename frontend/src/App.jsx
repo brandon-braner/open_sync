@@ -12,6 +12,8 @@ import { GlobalSkillsPage, ProjectSkillsPage } from './pages/skills/SkillsPages'
 import { GlobalWorkflowsPage, ProjectWorkflowsPage } from './pages/workflows/WorkflowsPages';
 import { GlobalLlmProvidersPage, ProjectLlmProvidersPage } from './pages/llm/LlmProvidersPages';
 import { GlobalAgentsPage, ProjectAgentsPage } from './pages/agents/AgentsPages';
+import RegistryPage from './pages/RegistryPage';
+
 
 export default function App() {
     const route = useHashRoute();
@@ -101,6 +103,8 @@ export default function App() {
         case '#/agents/sync': page = <SyncPage type="agents" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
         case '#/agents/global': page = <GlobalAgentsPage addToast={addToast} projects={projects} />; break;
         case '#/agents/project': page = <ProjectAgentsPage {...sharedProjectProps} />; break;
+        // OpenSync Registry
+        case '#/os-registry': page = <RegistryPage addToast={addToast} />; break;
         // Legacy URL aliases
         case '#/registry/global': page = <GlobalRegistryPage addToast={addToast} />; break;
         case '#/registry/project': page = <ProjectRegistryPage {...sharedProjectProps} />; break;

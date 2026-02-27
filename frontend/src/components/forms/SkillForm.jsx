@@ -6,12 +6,13 @@ export function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
         name: initialData?.name || '',
         description: initialData?.description || '',
         content: initialData?.content || '',
+        notes: initialData?.notes || '',
     });
     const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
     const submit = (e) => {
         e.preventDefault();
         if (!form.name.trim()) return;
-        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content });
+        onSave({ name: form.name.trim(), description: form.description.trim() || null, content: form.content, notes: form.notes.trim() });
     };
     return (
         <form className="add-form" onSubmit={submit}>
@@ -25,6 +26,10 @@ export function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
                     placeholder="You are a helpful…"
                     rows={10}
                 />
+            </div>
+            <div className="form-group full">
+                <label>Notes / Prerequisites</label>
+                <textarea value={form.notes} onChange={set('notes')} placeholder="e.g. Requires: npm install -g @org/pkg, or uv tool install …" rows={2} />
             </div>
             <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>

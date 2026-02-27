@@ -50,6 +50,12 @@ const NAV_SECTIONS = [
             { hash: '#/workflows/project', label: '📁 Project' },
         ],
     },
+    {
+        id: 'os-registry',
+        label: '🏛️ Registry',
+        defaultHash: '#/os-registry',
+        links: [],
+    },
 ];
 
 export function hashToSection(hash) {
@@ -57,6 +63,7 @@ export function hashToSection(hash) {
     if (hash.startsWith('#/workflows')) return 'workflows';
     if (hash.startsWith('#/llm')) return 'llm';
     if (hash.startsWith('#/agents')) return 'agents';
+    if (hash.startsWith('#/os-registry')) return 'os-registry';
     return 'servers'; // default
 }
 

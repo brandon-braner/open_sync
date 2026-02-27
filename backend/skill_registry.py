@@ -17,6 +17,7 @@ def _row_to_skill(row) -> Skill:
         description=row["description"],
         content=row["content"],
         sources=[SOURCE_TAG],
+        notes=row["notes"] if "notes" in row.keys() else "",
     )
 
 
@@ -63,9 +64,7 @@ def get_skill(
 def get_skill_by_id(skill_id: str) -> Skill | None:
     conn = get_connection()
     try:
-        row = conn.execute(
-            "SELECT * FROM skills WHERE id = ?", (skill_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM skills WHERE id = ?", (skill_id,)).fetchone()
         if row is None:
             return None
         return _row_to_skill(row)
@@ -73,9 +72,7 @@ def get_skill_by_id(skill_id: str) -> Skill | None:
         conn.close()
 
 
-def add_skill(
-    skill: Skill, scope: str = "global", project: str | None = None
-) -> Skill:
+def add_skill(skill: Skill, scope: str = "global", project: str | None = None) -> Skill:
     conn = get_connection()
     try:
         actual_scope = scope if (scope == "project" and project) else "global"
@@ -90,14 +87,14 @@ def add_skill(
         if existing:
             skill_id = existing["id"]
             conn.execute(
-                "UPDATE skills SET description = ?, content = ? WHERE id = ?",
-                (skill.description, skill.content, skill_id),
+                "UPDATE skills SET description = ?, content = ?, notes = ? WHERE id = ?",
+                (skill.description, skill.content, skill.notes, skill_id),
             )
         else:
             conn.execute(
                 """INSERT INTO skills
-                   (id, name, scope, project, description, content)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   (id, name, scope, project, description, content, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (
                     skill_id,
                     skill.name,
@@ -105,6 +102,7 @@ def add_skill(
                     proj_val,
                     skill.description,
                     skill.content,
+                    skill.notes,
                 ),
             )
         conn.commit()

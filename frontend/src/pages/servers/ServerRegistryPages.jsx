@@ -115,6 +115,7 @@ export function GlobalRegistryPage({ addToast }) {
                             server={s}
                             onEdit={(srv) => { setEditing(srv); setShowAdd(false); }}
                             onDelete={handleDelete}
+                            addToast={addToast}
                         />
                     ))}
                 </div>
@@ -334,6 +335,7 @@ export function ProjectRegistryPage({ projects, addToast, onAddProject, onRemove
                                     server={s}
                                     onEdit={(srv) => { setEditing(srv); setShowAdd(false); }}
                                     onDelete={handleDelete}
+                                    addToast={addToast}
                                 />
                             ))}
                         </div>
