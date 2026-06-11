@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture()
 def client(env):
-    from routers import api_router
+    from opensync.routers import api_router
 
     app = FastAPI()
     app.include_router(api_router)

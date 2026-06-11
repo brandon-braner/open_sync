@@ -5,8 +5,8 @@ import json
 
 import tomlkit
 
-from engine.handlers import HANDLERS
-from models import CommandEntity, McpServer, SkillEntity, SubagentEntity
+from opensync.engine.handlers import HANDLERS
+from opensync.models import CommandEntity, McpServer, SkillEntity, SubagentEntity
 
 
 def apply_changes(changes):
@@ -296,7 +296,7 @@ def test_llm_json_is_read_only(tmp_path):
 # markdown_blocks (rules in shared instruction files)
 # ---------------------------------------------------------------------------
 
-from models import RuleEntity
+from opensync.models import RuleEntity
 
 
 def test_markdown_blocks_roundtrip_preserves_user_content(tmp_path):

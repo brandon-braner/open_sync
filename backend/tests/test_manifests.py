@@ -3,9 +3,9 @@ removing a tool can never leave stale assertions behind."""
 
 import pytest
 
-from engine import paths
-from engine.handlers import HANDLERS
-from integrations import ALL_INTEGRATIONS
+from opensync.engine import paths
+from opensync.engine.handlers import HANDLERS
+from opensync.integrations import ALL_INTEGRATIONS
 
 ALL_TARGETS = [
     pytest.param(integration, kind, scope, target,

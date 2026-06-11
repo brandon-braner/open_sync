@@ -40,3 +40,7 @@ output/
 # OS
 .DS_Store
 
+
+# Build artifacts
+backend/dist/
+backend/opensync/static/

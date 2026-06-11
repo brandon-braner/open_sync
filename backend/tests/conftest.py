@@ -9,7 +9,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENSYNC_DB_PATH", str(tmp_path / "test.db"))
     monkeypatch.setenv("OPENSYNC_HOME", str(home))
 
-    from db import init_db
+    from opensync.db import init_db
 
     init_db()
     return tmp_path
@@ -23,7 +23,7 @@ def home(env):
 @pytest.fixture()
 def project(env):
     """A registered project with its directory."""
-    import store
+    from opensync import store
 
     project_dir = env / "proj"
     project_dir.mkdir()

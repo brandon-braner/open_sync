@@ -50,6 +50,29 @@ Rules synced into shared instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, Dev
 
 ## 🚀 Getting Started
 
+### Run it
+
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uvx open-sync
+```
+
+That's it — the server starts and the web UI opens in your browser. Until the
+package is published to PyPI, run it straight from the repo instead (needs
+Node 20+ the first time, to build the UI):
+
+```bash
+uvx --from "git+https://github.com/brandon-braner/open_sync#subdirectory=backend" opensync
+```
+
+Or install it as a persistent tool: `uv tool install open-sync`, then `opensync`.
+
+Useful flags: `--port`, `--no-browser`, `--db <path>` (registry defaults to
+`~/.opensync/opensync.db`).
+
+### Develop
+
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+.
 
 ```bash
@@ -61,7 +84,7 @@ cd open_sync
 ```
 
 - Backend: http://localhost:8001 (FastAPI; docs at `/docs`)
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173 (Vite dev server with hot reload)
 
 An existing v1 `opensync.db` is migrated automatically on first start (a copy is kept at `opensync.db.pre-v2`).
 

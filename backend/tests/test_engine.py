@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-import store
-from engine import engine
-from models import McpServer, SkillEntity
+from opensync import store
+from opensync.engine import engine
+from opensync.models import McpServer, SkillEntity
 
 
 def _seed_cursor_global(home, servers: dict):
@@ -229,7 +229,7 @@ def test_apply_creates_backup_of_existing_files(env, home):
 
 
 def test_backup_rotation(env, home, monkeypatch):
-    from engine import backup as backup_mod
+    from opensync.engine import backup as backup_mod
 
     monkeypatch.setattr(backup_mod, "KEEP_RUNS", 3)
     f = home / "file.txt"
@@ -247,7 +247,7 @@ def test_backup_rotation(env, home, monkeypatch):
 
 
 def test_rule_sync_to_claude_md_and_cursor(env, project):
-    from models import RuleEntity
+    from opensync.models import RuleEntity
     from pathlib import Path
 
     rule = store.create_entity(

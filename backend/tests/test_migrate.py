@@ -67,7 +67,7 @@ def test_v1_to_v2_migration(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENSYNC_DB_PATH", str(db_file))
     monkeypatch.setenv("OPENSYNC_HOME", str(tmp_path))
 
-    from db import init_db, get_connection, schema_version
+    from opensync.db import init_db, get_connection, schema_version
 
     init_db()
 
@@ -79,7 +79,7 @@ def test_v1_to_v2_migration(tmp_path, monkeypatch):
     }
     assert "servers" not in tables and "entities" in tables
 
-    import store
+    from opensync import store
 
     servers = store.list_entities("mcp")
     assert {s.name for s in servers} == {"ctx", "proj-srv"}
