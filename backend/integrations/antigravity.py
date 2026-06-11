@@ -1,42 +1,44 @@
-# Antigravity (by Google DeepMind)
+# Antigravity (Google DeepMind)
 #
-# MCP:
-#   Global config: ~/.gemini/antigravity/mcp_config.json  (root key: "mcpServers")
-#   Project config: .antigravity/mcp_config.json          (root key: "mcpServers")
-#
-# Skills:
-#   Global:  ~/.agents/skills/     (native markdown skill files)
-#   Project: <project>/.agents/skills/
-#
-# Workflows:
-#   Global:  ~/.agents/workflows/     (native markdown workflow files)
-#   Project: <project>/.agents/workflows/
+# MCP:       ~/.gemini/antigravity/mcp_config.json / .antigravity/mcp_config.json
+# Skills:    ~/.agents/skills/ and .agents/skills/ (Agent Skills standard dirs)
+# Workflows: ~/.agents/workflows/ and .agents/workflows/
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 antigravity = Integration(
     id="antigravity",
     display_name="Antigravity",
     color="#4285F4",
     category="editor",
-    llm_support=False,
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.gemini/antigravity/mcp_config.json", root_key="mcpServers"
-        ),
-        "project": ScopedConfig(
-            config_path=".antigravity/mcp_config.json", root_key="mcpServers"
-        ),
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.gemini/antigravity/mcp_config.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+            "project": EntityTarget(
+                path=".antigravity/mcp_config.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(path="~/.agents/skills/", handler="skill_dir"),
+            "project": EntityTarget(path=".agents/skills/", handler="skill_dir"),
+        },
+        "command": {
+            "global": EntityTarget(
+                path="~/.agents/workflows/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "plain"},
+            ),
+            "project": EntityTarget(
+                path=".agents/workflows/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "plain"},
+            ),
+        },
     },
-    skill={
-        "global": ScopedConfig(config_path="~/.agents/skills/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.agents/skills/", native="true"),
-    },
-    workflow={
-        "global": ScopedConfig(config_path="~/.agents/workflows/", native="true"),
-        "project": ScopedConfig(
-            config_path="<project>/.agents/workflows/", native="true"
-        ),
-    },
-    agent_support=False,
 )

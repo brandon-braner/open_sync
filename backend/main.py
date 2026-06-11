@@ -6,10 +6,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api import router
-from database import init_db
+from db import init_db
+from routers import api_router
 
-# Initialize SQLite database (creates tables, migrates JSON data on first run)
+# Initialize SQLite database (creates v2 tables, migrates a v1 db on first run)
 init_db()
 
 app = FastAPI(
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router)
+app.include_router(api_router)
 
 
 # Serve built frontend in production (if the dist folder exists)

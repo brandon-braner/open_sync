@@ -1,45 +1,59 @@
 # GitHub Copilot CLI
-# Docs: https://docs.github.com/en/copilot/github-copilot-in-the-cli
+# Docs: https://docs.github.com/en/copilot/how-tos/copilot-cli
 #
-# MCP:
-#   Global config: ~/.copilot/mcp-config.json   (root key: "mcpServers")
-#                  (default path; overridable via XDG_CONFIG_HOME env var)
-#   Project config: .copilot/mcp-config.json    (root key: "mcpServers")
-#   Add servers via: gh copilot /mcp add, or edit JSON directly
-#   Ref: https://docs.github.com/en/copilot/how-tos/copilot-cli/using-mcp-with-copilot-cli
-#
-# Skills (SKILL.md files in subdirectories):
-#   Global:  ~/.copilot/skills/              (personal skills, available across projects)
-#   Project: <project>/.github/skills/       (project skills, committed to repo)
-#   Also searches .claude/skills/ for cross-tool compatibility
-#   Ref: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-skills
-#
-# Workflows: not supported natively
-# LLM config: model selection managed through GitHub account / copilot settings
+# MCP:      ~/.copilot/mcp-config.json (global; accepts the standard
+#           "mcpServers" wrapper). Project level: .mcp.json (shared with
+#           Claude Code) or .github/mcp.json.
+# Skills:   ~/.copilot/skills/ (also reads ~/.claude/skills/, ~/.agents/skills/);
+#           project .github/skills/.
+# Agents:   ~/.copilot/agents/*.agent.md; project .github/agents/*.md.
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 copilot_cli = Integration(
     id="copilot_cli",
     display_name="GitHub Copilot CLI",
     color="#6E40C9",
     category="cli",
-    workflow_support=False,
-    llm_support=False,
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.copilot/mcp-config.json", root_key="mcpServers"
-        ),
-        "project": ScopedConfig(
-            config_path=".copilot/mcp-config.json", root_key="mcpServers"
-        ),
-    },
-    skill={
-        "global": ScopedConfig(config_path="~/.copilot/skills/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.github/skills/", native="true"),
-    },
-    agent={
-        "global": ScopedConfig(config_path="~/.copilot/agents/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.github/agents/", native="true"),
+    docs_url="https://docs.github.com/en/copilot/how-tos/copilot-cli",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.copilot/mcp-config.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+            "project": EntityTarget(
+                path=".mcp.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+                read_paths=[".github/mcp.json"],
+                notes="Project MCP config is .mcp.json, shared with Claude Code.",
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(
+                path="~/.copilot/skills/",
+                handler="skill_dir",
+                read_paths=["~/.claude/skills/", "~/.agents/skills/"],
+            ),
+            "project": EntityTarget(
+                path=".github/skills/",
+                handler="skill_dir",
+                read_paths=[".claude/skills/", ".agents/skills/"],
+            ),
+        },
+        "subagent": {
+            "global": EntityTarget(
+                path="~/.copilot/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".agent.md", "frontmatter": "copilot_agent"},
+            ),
+            "project": EntityTarget(
+                path=".github/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "copilot_agent"},
+            ),
+        },
     },
 )

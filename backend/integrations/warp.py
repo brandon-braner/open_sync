@@ -1,37 +1,31 @@
 # Warp Terminal
 # Docs: https://docs.warp.dev
 #
-# MCP: not supported
-# LLM config: not applicable (model managed by Warp's cloud service)
-#
-# Skills (AI Agent skills — YAML files):
-#   Global:  ~/.warp/skills/             (available across all projects)
-#   Project: <project>/.warp/skills/     (discovered up from CWD to repo root)
-#   Ref: https://docs.warp.dev/features/agent-mode/skills
-#
-# Workflows (parameterized command sequences — YAML files):
-#   Global:  ~/.warp/workflows/          (available globally via Command Palette)
-#   Project: <project>/.warp/workflows/  (project-specific workflows)
-#   Ref: https://docs.warp.dev/features/workflows
+# MCP: configured in the Warp UI, not file-based — unsupported here.
+# Skills:    ~/.warp/skills/ and .warp/skills/ (SKILL.md folders).
+# Workflows: ~/.warp/workflows/*.yaml and .warp/workflows/*.yaml —
+#            parameterised command sequences (name/command/description YAML).
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 warp = Integration(
     id="warp",
     display_name="Warp",
     color="#01CBA4",
     category="desktop",
-    mcp_support=False,
-    llm_support=False,
-    agent_support=False,
-    skill={
-        "global": ScopedConfig(config_path="~/.warp/skills/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.warp/skills/", native="true"),
-    },
-    workflow={
-        "global": ScopedConfig(config_path="~/.warp/workflows/", native="true"),
-        "project": ScopedConfig(
-            config_path="<project>/.warp/workflows/", native="true"
-        ),
+    notes="MCP servers and model selection are managed in the Warp UI.",
+    targets={
+        "skill": {
+            "global": EntityTarget(path="~/.warp/skills/", handler="skill_dir"),
+            "project": EntityTarget(path=".warp/skills/", handler="skill_dir"),
+        },
+        "command": {
+            "global": EntityTarget(
+                path="~/.warp/workflows/", handler="yaml_workflow"
+            ),
+            "project": EntityTarget(
+                path=".warp/workflows/", handler="yaml_workflow"
+            ),
+        },
     },
 )

@@ -1,148 +1,87 @@
-"""Base Pydantic models for AI tool integrations.
+"""Manifest models for AI tool integrations.
 
-An Integration represents one AI application (editor, CLI, plugin, etc.) and
-defines which feature types it supports (mcp, skill, workflow, llm) and the
-config paths for each supported scope (global / project).
+An Integration describes one AI application (editor, CLI, desktop app, …).
+For every entity kind it supports (mcp / skill / command / subagent / llm)
+and every scope (global / project) it declares an EntityTarget: where the
+config lives and which format handler reads/writes it.
+
+Everything else in OpenSync — discovery, import, sync, status, and the
+frontend target lists — is derived from these manifests. There must be no
+other per-tool path or format knowledge anywhere in the codebase.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+EntityKind = Literal["mcp", "skill", "command", "subagent", "llm"]
+Scope = Literal["global", "project"]
 
-class ScopedConfig(BaseModel):
-    """Configuration for one feature type at one scope (global or project)."""
+ENTITY_KINDS: tuple[str, ...] = ("mcp", "skill", "command", "subagent", "llm")
+SCOPES: tuple[str, ...] = ("global", "project")
 
-    # Universal
-    config_path: str
 
-    # MCP-specific
-    root_key: str = "mcpServers"
-    format_type: str = "standard"  # standard | opencode | vscode | yaml
-    nested: bool = False  # True if MCP block lives inside a larger settings file
+class EntityTarget(BaseModel):
+    """One (entity kind, scope) surface of one integration."""
 
-    # Skill / Workflow-specific
-    native: str = "false"  # "true" if the tool has first-class support
+    # Global paths start with '~'; project paths are relative to the project
+    # directory. Files end in an extension, directories end in '/'.
+    path: str
 
-    # LLM-specific
-    read_only: bool = False  # True if discovery-only (no write support)
+    # Key into engine.handlers.HANDLERS.
+    handler: str
+
+    # Handler-specific options (root_key, style, suffix, frontmatter, table…).
+    options: dict[str, Any] = Field(default_factory=dict)
+
+    # native    – first-class support, read + write
+    # fallback  – works, but via a compatibility mechanism
+    # read_only – discovery only, sync disabled
+    # legacy    – still works but deprecated by the tool; hidden by default
+    capability: Literal["native", "fallback", "read_only", "legacy"] = "native"
+
+    # Additional locations scanned during discovery only (legacy dirs,
+    # shared cross-tool dirs). Same handler/options as `path`.
+    read_paths: list[str] = Field(default_factory=list)
+
+    # Instruction files that may contain v1 OPENSYNC marker blocks; they are
+    # cleaned up when this target is synced (skills used to be injected into
+    # CLAUDE.md-style files between HTML comment markers).
+    legacy_marker_paths: list[str] = Field(default_factory=list)
+
+    # Per-OS overrides for `path`, keyed by sys.platform-style name
+    # ("linux", "win32"). Default `path` is the macOS location.
+    os_paths: dict[str, str] = Field(default_factory=dict)
+
+    # Caveat surfaced in the UI (e.g. "User Rules are settings-UI only").
+    notes: str = ""
 
     model_config = {"extra": "forbid"}
 
 
 class Integration(BaseModel):
-    """Describes a single AI application across all feature types and scopes."""
+    """Describes a single AI application across all entity kinds and scopes."""
 
     id: str
     display_name: str
     color: str = "#888888"
-    category: str = "editor"  # editor | desktop | cli | plugin
+    category: Literal["editor", "desktop", "cli", "cloud", "plugin"] = "editor"
+    docs_url: str = ""
 
-    # Feature-support flags — set to False to hide from the corresponding page
-    # even when config dicts are populated.
-    mcp_support: bool = True
-    skill_support: bool = True
-    workflow_support: bool = True
-    llm_support: bool = True
-    agent_support: bool = True
+    # kind -> scope -> target. An omitted kind or scope means "unsupported".
+    targets: dict[EntityKind, dict[Scope, EntityTarget]] = Field(default_factory=dict)
 
-    # Each dict maps scope string ("global" or "project") → ScopedConfig.
-    # Omitting a key means the tool is hidden from that page.
-    mcp: dict[str, ScopedConfig] = Field(default_factory=dict)
-    skill: dict[str, ScopedConfig] = Field(default_factory=dict)
-    workflow: dict[str, ScopedConfig] = Field(default_factory=dict)
-    llm: dict[str, ScopedConfig] = Field(default_factory=dict)
-    agent: dict[str, ScopedConfig] = Field(default_factory=dict)
+    # Integration-level caveats shown in the UI.
+    notes: str = ""
 
     model_config = {"extra": "forbid"}
 
-    # ------------------------------------------------------------------
-    # Derived flat-dict helpers (used by unified_targets accessor fns)
-    # ------------------------------------------------------------------
+    def target_for(self, kind: EntityKind, scope: Scope) -> EntityTarget | None:
+        return self.targets.get(kind, {}).get(scope)
 
-    def mcp_dicts(self) -> list[dict[str, Any]]:
-        if not self.mcp_support:
-            return []
-        result = []
-        for scope, cfg in self.mcp.items():
-            result.append(
-                {
-                    "name": f"{self.id}_{scope}",
-                    "display_name": self.display_name,
-                    "config_path": cfg.config_path,
-                    "root_key": cfg.root_key,
-                    "scope": scope,
-                    "format_type": cfg.format_type,
-                    "color": self.color,
-                    "nested": cfg.nested,
-                    "base_target": self.id,
-                    "category": self.category,
-                }
-            )
-        return result
-
-    def skill_dicts(self) -> list[dict[str, Any]]:
-        if not self.skill_support:
-            return []
-        return [
-            {
-                "id": f"{self.id}_{scope}",
-                "display_name": self.display_name,
-                "config_path": cfg.config_path,
-                "scope": scope,
-                "color": self.color,
-                "native": cfg.native,
-                "category": self.category,
-            }
-            for scope, cfg in self.skill.items()
-        ]
-
-    def workflow_dicts(self) -> list[dict[str, Any]]:
-        if not self.workflow_support:
-            return []
-        return [
-            {
-                "id": f"{self.id}_{scope}",
-                "display_name": self.display_name,
-                "config_path": cfg.config_path,
-                "scope": scope,
-                "color": self.color,
-                "native": cfg.native,
-                "category": self.category,
-            }
-            for scope, cfg in self.workflow.items()
-        ]
-
-    def llm_dicts(self) -> list[dict[str, Any]]:
-        if not self.llm_support:
-            return []
-        return [
-            {
-                "id": f"{self.id}_{scope}",
-                "display_name": self.display_name
-                + (" (read-only)" if cfg.read_only else ""),
-                "config_path": cfg.config_path,
-                "scope": scope,
-                "color": self.color,
-                "category": self.category,
-            }
-            for scope, cfg in self.llm.items()
-        ]
-
-    def agent_dicts(self) -> list[dict[str, Any]]:
-        if not self.agent_support:
-            return []
-        return [
-            {
-                "id": f"{self.id}_{scope}",
-                "display_name": self.display_name,
-                "config_path": cfg.config_path,
-                "scope": scope,
-                "color": self.color,
-                "native": cfg.native,
-                "category": self.category,
-            }
-            for scope, cfg in self.agent.items()
-        ]
+    def supports(self, kind: EntityKind, scope: Scope | None = None) -> bool:
+        if kind not in self.targets:
+            return False
+        return scope is None or scope in self.targets[kind]

@@ -1,43 +1,72 @@
-# Claude Code (Anthropic)
-# Docs: https://docs.anthropic.com/en/docs/claude-code/mcp
+# Claude Code (Anthropic CLI)
+# Docs: https://code.claude.com/docs
 #
-# MCP:
-#   Global config: ~/.claude.json         (root key: "mcpServers") — user/local scope
-#   Project config: .mcp.json             (root key: "mcpServers") — project scope, shared with collaborators
-#   Ref: https://docs.anthropic.com/en/docs/claude-code/mcp#configuration-scopes
+# MCP:      ~/.claude.json ("mcpServers", user scope) / .mcp.json (project, committable)
+# Skills:   ~/.claude/skills/<name>/SKILL.md / .claude/skills/<name>/SKILL.md
+# Commands: ~/.claude/commands/*.md / .claude/commands/*.md
+# Agents:   ~/.claude/agents/*.md / .claude/agents/*.md (markdown + YAML frontmatter)
 #
-# Skills (CLAUDE.md memory files):
-#   Global:  ~/.claude/CLAUDE.md          (instructions loaded in every session)
-#   Project: <project>/CLAUDE.md          (project-level instructions, committed to repo)
-#   Ref: https://docs.anthropic.com/en/docs/claude-code/memory
-#
-# LLM / Model settings:
-#   Global:  ~/.claude.json
-#   Project: .claude/settings.json
-#   Ref: https://docs.anthropic.com/en/docs/claude-code/settings
+# v1 OpenSync injected skills into CLAUDE.md between marker comments; those
+# blocks are cleaned up on the first skill sync (legacy_marker_paths).
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 claude_code = Integration(
     id="claude_code",
     display_name="Claude Code",
     color="#D97757",
     category="cli",
-    workflow_support=False,
-    mcp={
-        "global": ScopedConfig(config_path="~/.claude.json", root_key="mcpServers"),
-        "project": ScopedConfig(config_path=".mcp.json", root_key="mcpServers"),
-    },
-    skill={
-        "global": ScopedConfig(config_path="~/.claude/CLAUDE.md", native="true"),
-        "project": ScopedConfig(config_path="<project>/CLAUDE.md", native="true"),
-    },
-    llm={
-        "global": ScopedConfig(config_path="~/.claude.json"),
-        "project": ScopedConfig(config_path=".claude/settings.json"),
-    },
-    agent={
-        "global": ScopedConfig(config_path="~/.claude/agents/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.claude/agents/", native="true"),
+    docs_url="https://code.claude.com/docs",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.claude.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+                notes="Claude Code also stores session state in this file; "
+                "avoid syncing while Claude Code is running.",
+            ),
+            "project": EntityTarget(
+                path=".mcp.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(
+                path="~/.claude/skills/",
+                handler="skill_dir",
+                legacy_marker_paths=["~/.claude/CLAUDE.md"],
+            ),
+            "project": EntityTarget(
+                path=".claude/skills/",
+                handler="skill_dir",
+                legacy_marker_paths=["CLAUDE.md"],
+            ),
+        },
+        "command": {
+            "global": EntityTarget(
+                path="~/.claude/commands/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_command"},
+            ),
+            "project": EntityTarget(
+                path=".claude/commands/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_command"},
+            ),
+        },
+        "subagent": {
+            "global": EntityTarget(
+                path="~/.claude/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+            "project": EntityTarget(
+                path=".claude/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+        },
     },
 )

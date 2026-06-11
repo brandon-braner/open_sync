@@ -1,57 +1,65 @@
 # Gemini CLI (Google)
 # Docs: https://github.com/google-gemini/gemini-cli
 #
-# MCP:
-#   Global config: ~/.gemini/settings.json   (root key: "mcpServers", nested)
-#   Project config: .gemini/settings.json    (root key: "mcpServers", nested)
-#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/mcp.md
-#
-# Skills:
-#   Global:  ~/.gemini/skills/               (native markdown skill files; also supports ~/.agents/skills/)
-#   Project: <project>/.gemini/skills/
-#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/skills.md
-#
-# Workflows (slash commands / .toml files):
-#   Global:  ~/.gemini/commands/             (native — global slash commands)
-#   Project: <project>/.gemini/commands/
-#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/slash-commands.md
-#
-# LLM / Model settings:
-#   Global:  ~/.gemini/settings.json
-#   Project: .gemini/settings.json
-#   Ref: https://github.com/google-gemini/gemini-cli/blob/main/docs/settings.md
+# MCP:      ~/.gemini/settings.json / .gemini/settings.json ("mcpServers",
+#           nested inside the larger settings file).
+# Skills:   ~/.gemini/skills/ and .gemini/skills/ (also reads .agents/skills/).
+# Commands: ~/.gemini/commands/*.toml and .gemini/commands/*.toml — TOML files
+#           with `description` and `prompt` keys.
+# Subagents: ~/.gemini/agents/ and .gemini/agents/ (markdown + frontmatter).
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 gemini_cli = Integration(
     id="gemini_cli",
     display_name="Gemini CLI",
     color="#0F9D58",
     category="cli",
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.gemini/settings.json", root_key="mcpServers", nested=True
-        ),
-        "project": ScopedConfig(
-            config_path=".gemini/settings.json", root_key="mcpServers", nested=True
-        ),
-    },
-    skill={
-        "global": ScopedConfig(config_path="~/.gemini/skills/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.gemini/skills/", native="true"),
-    },
-    workflow={
-        "global": ScopedConfig(config_path="~/.gemini/commands/", native="true"),
-        "project": ScopedConfig(
-            config_path="<project>/.gemini/commands/", native="true"
-        ),
-    },
-    llm={
-        "global": ScopedConfig(config_path="~/.gemini/settings.json"),
-        "project": ScopedConfig(config_path=".gemini/settings.json"),
-    },
-    agent={
-        "global": ScopedConfig(config_path="~/.gemini/agents/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.gemini/agents/", native="true"),
+    docs_url="https://github.com/google-gemini/gemini-cli",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.gemini/settings.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+            "project": EntityTarget(
+                path=".gemini/settings.json",
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(
+                path="~/.gemini/skills/",
+                handler="skill_dir",
+                read_paths=["~/.agents/skills/"],
+            ),
+            "project": EntityTarget(
+                path=".gemini/skills/",
+                handler="skill_dir",
+                read_paths=[".agents/skills/"],
+            ),
+        },
+        "command": {
+            "global": EntityTarget(
+                path="~/.gemini/commands/", handler="toml_command"
+            ),
+            "project": EntityTarget(
+                path=".gemini/commands/", handler="toml_command"
+            ),
+        },
+        "subagent": {
+            "global": EntityTarget(
+                path="~/.gemini/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+            "project": EntityTarget(
+                path=".gemini/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+        },
     },
 )

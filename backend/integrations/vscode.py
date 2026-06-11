@@ -1,58 +1,60 @@
-# VS Code + GitHub Copilot
+# GitHub Copilot in VS Code
 # Docs: https://code.visualstudio.com/docs/copilot
 #
-# MCP:
-#   Global config: ~/Library/Application Support/Code/User/mcp.json
-#                  (root key: "servers", uses VS Code-specific format)
-#   Project config: .vscode/mcp.json   (root key: "servers")
-#   Ref: https://code.visualstudio.com/docs/copilot/customization/mcp-servers
-#
-# Skills (Agent Skills — SKILL.md in subdirectories):
-#   Global:  ~/.copilot/skills/              (user-level skills)
-#   Project: <project>/.github/skills/       (workspace skills)
-#   Each skill is a subdirectory with a SKILL.md file.
-#   Ref: https://code.visualstudio.com/docs/copilot/customization/agent-skills
-#
-# Workflows (Prompt Files — .prompt.md files):
-#   Global:  (user profile prompts/ folder)
-#   Project: <project>/.github/prompts/      (workspace prompt files)
-#   Triggered via # prefix in chat.
-#   Ref: https://code.visualstudio.com/docs/copilot/customization/prompt-files
-#
-# Agents (Custom Agents — .agent.md files):
-#   Project: <project>/.github/agents/       (workspace agents)
-#   Ref: https://code.visualstudio.com/docs/copilot/customization/custom-agents
-#
-# LLM config: not applicable — model managed through Copilot extension settings
+# MCP:      user-profile mcp.json (root key "servers", VS Code entry format)
+#           and project .vscode/mcp.json. NOT settings.json.
+# Skills:   .github/skills/<name>/SKILL.md (workspace); VS Code also scans
+#           .claude/skills/ and .agents/skills/. Personal: ~/.copilot/skills/.
+# Prompts:  .github/prompts/*.prompt.md
+# Agents:   .github/agents/<name>.md
+# Instructions (.github/copilot-instructions.md, AGENTS.md) are not managed.
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 vscode_github_copilot = Integration(
     id="vscode_github_copilot",
-    display_name="VS Code + GitHub Copilot",
+    display_name="GitHub Copilot (VS Code)",
     color="#007ACC",
     category="editor",
-    llm_support=False,
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/Library/Application Support/Code/User/mcp.json",
-            root_key="servers",
-            format_type="vscode",
-        ),
-        "project": ScopedConfig(
-            config_path=".vscode/mcp.json", root_key="servers", format_type="vscode"
-        ),
-    },
-    skill={
-        "global": ScopedConfig(config_path="~/.copilot/skills/", native="true"),
-        "project": ScopedConfig(config_path="<project>/.github/skills/", native="true"),
-    },
-    workflow={
-        "project": ScopedConfig(
-            config_path="<project>/.github/prompts/", native="true"
-        ),
-    },
-    agent={
-        "project": ScopedConfig(config_path="<project>/.github/agents/", native="true"),
+    docs_url="https://code.visualstudio.com/docs/copilot",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/Library/Application Support/Code/User/mcp.json",
+                handler="json_mcp",
+                options={"root_key": "servers", "style": "vscode"},
+                os_paths={
+                    "linux": "~/.config/Code/User/mcp.json",
+                    "win32": "~/AppData/Roaming/Code/User/mcp.json",
+                },
+            ),
+            "project": EntityTarget(
+                path=".vscode/mcp.json",
+                handler="json_mcp",
+                options={"root_key": "servers", "style": "vscode"},
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(path="~/.copilot/skills/", handler="skill_dir"),
+            "project": EntityTarget(
+                path=".github/skills/",
+                handler="skill_dir",
+                read_paths=[".claude/skills/", ".agents/skills/"],
+            ),
+        },
+        "command": {
+            "project": EntityTarget(
+                path=".github/prompts/",
+                handler="markdown_dir",
+                options={"suffix": ".prompt.md", "frontmatter": "copilot_prompt"},
+            ),
+        },
+        "subagent": {
+            "project": EntityTarget(
+                path=".github/agents/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "copilot_agent"},
+            ),
+        },
     },
 )

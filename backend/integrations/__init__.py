@@ -8,28 +8,41 @@ To add a new integration:
 The order of ALL_INTEGRATIONS controls display order where relevant.
 """
 
-from integrations.base import Integration, ScopedConfig  # noqa: F401 – re-exported
+from integrations.base import (  # noqa: F401 – re-exported
+    ENTITY_KINDS,
+    SCOPES,
+    EntityTarget,
+    Integration,
+)
 
-from integrations.opencode import opencode
 from integrations.claude_code import claude_code
 from integrations.claude_desktop import claude_desktop
-from integrations.warp import warp
+from integrations.codex import codex
 from integrations.vscode import vscode_github_copilot
-from integrations.windsurf import windsurf
-from integrations.gemini_cli import gemini_cli
-from integrations.cursor import cursor
 from integrations.copilot_cli import copilot_cli
+from integrations.cursor import cursor
+from integrations.devin import devin
+from integrations.gemini_cli import gemini_cli
+from integrations.opencode import opencode
 from integrations.antigravity import antigravity
+from integrations.warp import warp
 
 ALL_INTEGRATIONS: list[Integration] = [
-    opencode,
     claude_code,
     claude_desktop,
-    warp,
+    codex,
     vscode_github_copilot,
-    windsurf,
-    gemini_cli,
-    cursor,
     copilot_cli,
+    cursor,
+    devin,
+    gemini_cli,
+    opencode,
     antigravity,
+    warp,
 ]
+
+INTEGRATIONS_BY_ID: dict[str, Integration] = {i.id: i for i in ALL_INTEGRATIONS}
+
+
+def get_integration(integration_id: str) -> Integration | None:
+    return INTEGRATIONS_BY_ID.get(integration_id)

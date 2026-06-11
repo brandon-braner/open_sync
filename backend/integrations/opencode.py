@@ -1,68 +1,82 @@
 # OpenCode
 # Docs: https://opencode.ai/docs
 #
-# MCP:
-#   Global config: ~/.config/opencode/opencode.json   (key: "mcp", nested format)
-#   Project config: opencode.json                      (key: "mcp", nested format)
-#   Config uses opencode-specific MCP format (type: "local"|"remote", command array)
-#   Ref: https://opencode.ai/docs/mcp
-#
-# Skills:
-#   Global:  ~/.config/opencode/opencode.json  (native — stored within config file)
-#   Project: <project>/opencode.json
-#   Ref: https://opencode.ai/docs/skills
-#
-# Workflows:
-#   Global:  ~/.config/opencode/opencode.json  (native — stored within config file)
-#   Project: <project>/opencode.json
-#   Ref: https://opencode.ai/docs/workflows
-#
-# LLM / Model settings:
-#   Global:  ~/.config/opencode/opencode.json
-#   Project: opencode.json
-#   Ref: https://opencode.ai/docs/config
+# MCP:      ~/.config/opencode/opencode.json / opencode.json — "mcp" key,
+#           OpenCode-specific entry format (type local/remote, command array,
+#           environment).
+# Skills:   ~/.config/opencode/skill/ and .opencode/skill/ (singular dirs).
+# Commands: ~/.config/opencode/command/*.md and .opencode/command/*.md.
+# Agents:   ~/.config/opencode/agent/*.md and .opencode/agent/*.md.
+# LLM:      "provider" key in opencode.json (read-only discovery).
 
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 opencode = Integration(
     id="opencode",
     display_name="OpenCode",
     color="#FF6B6B",
     category="cli",
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.config/opencode/opencode.json",
-            root_key="mcp",
-            format_type="opencode",
-            nested=True,
-        ),
-        "project": ScopedConfig(
-            config_path="opencode.json",
-            root_key="mcp",
-            format_type="opencode",
-            nested=True,
-        ),
-    },
-    skill={
-        "global": ScopedConfig(
-            config_path="~/.config/opencode/opencode.json", native="true"
-        ),
-        "project": ScopedConfig(config_path="<project>/opencode.json", native="true"),
-    },
-    workflow={
-        "global": ScopedConfig(
-            config_path="~/.config/opencode/opencode.json", native="true"
-        ),
-        "project": ScopedConfig(config_path="<project>/opencode.json", native="true"),
-    },
-    llm={
-        "global": ScopedConfig(config_path="~/.config/opencode/opencode.json"),
-        "project": ScopedConfig(config_path="opencode.json"),
-    },
-    agent={
-        "global": ScopedConfig(config_path="~/.config/opencode/agents/", native="true"),
-        "project": ScopedConfig(
-            config_path="<project>/.opencode/agents/", native="true"
-        ),
+    docs_url="https://opencode.ai/docs",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.config/opencode/opencode.json",
+                handler="json_mcp",
+                options={"root_key": "mcp", "style": "opencode"},
+            ),
+            "project": EntityTarget(
+                path="opencode.json",
+                handler="json_mcp",
+                options={"root_key": "mcp", "style": "opencode"},
+            ),
+        },
+        "skill": {
+            "global": EntityTarget(
+                path="~/.config/opencode/skill/", handler="skill_dir"
+            ),
+            "project": EntityTarget(
+                path=".opencode/skill/",
+                handler="skill_dir",
+                read_paths=[".agents/skills/"],
+            ),
+        },
+        "command": {
+            "global": EntityTarget(
+                path="~/.config/opencode/command/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_command"},
+            ),
+            "project": EntityTarget(
+                path=".opencode/command/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_command"},
+            ),
+        },
+        "subagent": {
+            "global": EntityTarget(
+                path="~/.config/opencode/agent/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+            "project": EntityTarget(
+                path=".opencode/agent/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "claude_agent"},
+            ),
+        },
+        "llm": {
+            "global": EntityTarget(
+                path="~/.config/opencode/opencode.json",
+                handler="llm_json",
+                options={"root_key": "provider"},
+                capability="read_only",
+            ),
+            "project": EntityTarget(
+                path="opencode.json",
+                handler="llm_json",
+                options={"root_key": "provider"},
+                capability="read_only",
+            ),
+        },
     },
 )
