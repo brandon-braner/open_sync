@@ -1,266 +1,128 @@
 # Contributing New Integrations
 
-This guide explains how to add support for a new AI tool or editor to Open Sync.
+This guide explains how to add support for a new AI tool or editor to OpenSync.
 
 ## Overview
 
-Integrations define how Open Sync reads and writes configuration for different AI tools. Each integration specifies:
+An integration is **one declarative manifest file**. It states, for every
+entity kind the tool supports (`mcp`, `skill`, `command`, `subagent`, `llm`)
+and every scope (`global`, `project`):
 
-- Where the tool stores its configuration files
-- What features it supports (MCP, Skills, Workflows, LLM)
-- The format of its configuration files
+- where the config lives (`path`)
+- which **format handler** reads/writes it (`handler` + `options`)
+
+Discovery, import, sync, drift status, and the web UI all derive from the
+manifest. There is no other place to register a tool.
 
 ## Architecture
 
 ```
 backend/integrations/
 ├── __init__.py      # ALL_INTEGRATIONS registry
-├── base.py          # Integration & ScopedConfig models
-├── opencode.py      # Example integration
-└── ...              # Other integrations
+├── base.py          # Integration & EntityTarget models
+├── codex.py         # Example integration
+└── ...              # One file per tool
+
+backend/engine/handlers/   # Format handlers (shared across tools)
 ```
 
 ## Step-by-Step Guide
 
-### 1. Create the Integration File
+### 1. Create the manifest
 
-Create a new file at `backend/integrations/{tool_id}.py`:
+Create `backend/integrations/{tool_id}.py`:
 
 ```python
-from integrations.base import Integration, ScopedConfig
+from integrations.base import EntityTarget, Integration
 
 {tool_id} = Integration(
     id="{tool_id}",
     display_name="{Display Name}",
     color="#HEXCOLOR",
-    category="editor",  # editor | desktop | cli | plugin
-    
-    # Feature support (set to False to disable)
-    mcp_support=True,
-    skill_support=True,
-    workflow_support=True,
-    llm_support=True,
-    agent_support=True,
-    
-    # Feature configurations
-    mcp={{
-        "global": ScopedConfig(...),
-        "project": ScopedConfig(...),
-    }},
-    skill={{"global": ScopedConfig(...), "project": ...}},
-    workflow={{"global": ScopedConfig(...), "project": ...}},
-    llm={{"global": ScopedConfig(...), "project": ...}},
-    agent={{"global": ScopedConfig(...), "project": ...}},
-)
-```
-
-### 2. Register the Integration
-
-In `backend/integrations/__init__.py`, add your import and add to `ALL_INTEGRATIONS`:
-
-```python
-from integrations.{tool_id} import {tool_id}
-
-ALL_INTEGRATIONS: list[Integration] = [
-    # ... existing integrations
-    {tool_id},
-]
-```
-
-## Integration Reference
-
-### Integration Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | str | Unique identifier (kebab-case) |
-| `display_name` | str | Human-readable name |
-| `color` | str | Hex color for UI badges |
-| `category` | str | One of: `editor`, `desktop`, `cli`, `plugin` |
-| `mcp_support` | bool | Supports MCP servers |
-| `skill_support` | bool | Supports skills |
-| `workflow_support` | bool | Supports workflows |
-| `llm_support` | bool | Supports LLM providers |
-| `agent_support` | bool | Supports agents / subagents |
-| `mcp` | dict | MCP config scopes |
-| `skill` | dict | Skill config scopes |
-| `workflow` | dict | Workflow config scopes |
-| `llm` | dict | LLM config scopes |
-| `agent` | dict | Agent config scopes |
-
-### ScopedConfig Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `config_path` | str | Path to config file (supports `~`) |
-| `root_key` | str | JSON key for MCP entries (default: `mcpServers`) |
-| `format_type` | str | `standard`, `opencode`, `vscode`, or `yaml` |
-| `nested` | bool | MCP stored inside larger config file |
-| `native` | str | `"true"` if first-class MCP support |
-| `read_only` | bool | Discovery-only (no write) |
-
-### Format Types
-
-- **standard**: Default MCP format (`{{ "server-name": {{ "command": "...", "args": [...] }} }}`)
-- **opencode**: OpenCode format (`{{ "mcp": {{ "server-name": {{ ... }} }} }`)
-- **vscode**: VS Code MCP format with `enabled` field
-- **yaml**: YAML format for config files
-
-## Example Integrations
-
-### Full-Featured (MCP + Skills + Workflows + LLM)
-
-```python
-from integrations.base import Integration, ScopedConfig
-
-example = Integration(
-    id="example",
-    display_name="Example Tool",
-    color="#FF6B6B",
-    category="cli",
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.config/example/config.json",
-            root_key="mcpServers",
-        ),
-        "project": ScopedConfig(
-            config_path=".example-mcp.json",
-            root_key="mcpServers",
-        ),
-    },
-    skill={
-        "global": ScopedConfig(
-            config_path="~/.config/example/skills.json",
-            root_key="skills",
-        ),
-    },
-    workflow={
-        "global": ScopedConfig(
-            config_path="~/.config/example/workflows.json",
-            root_key="workflows",
-        ),
-    },
-    llm={
-        "global": ScopedConfig(
-            config_path="~/.config/example/providers.json",
-            root_key="providers",
-        ),
+    category="editor",          # editor | desktop | cli | cloud | plugin
+    docs_url="https://...",
+    targets={
+        "mcp": {
+            "global": EntityTarget(
+                path="~/.{tool}/mcp.json",                  # '~' = home
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+            "project": EntityTarget(
+                path=".{tool}/mcp.json",                    # project-relative
+                handler="json_mcp",
+                options={"root_key": "mcpServers", "style": "standard"},
+            ),
+        },
+        "skill": {
+            "project": EntityTarget(
+                path=".{tool}/skills/",
+                handler="skill_dir",
+                read_paths=[".agents/skills/"],   # extra discovery-only dirs
+            ),
+        },
+        # Omit a kind or scope entirely if the tool doesn't support it.
     },
 )
 ```
 
-### Agent Support (Markdown files in directories)
+`EntityTarget` fields worth knowing:
 
-```python
-example_with_agents = Integration(
-    id="example-agents",
-    display_name="Example With Agents",
-    color="#9B59B6",
-    category="cli",
-    mcp_support=False,
-    skill_support=False,
-    workflow_support=False,
-    llm_support=False,
-    mcp={},
-    agent={
-        "global": ScopedConfig(
-            config_path="~/.example/agents/",
-            native="true",
-        ),
-        "project": ScopedConfig(
-            config_path="<project>/.example/agents/",
-            native="true",
-        ),
-    },
-)
+| Field | Purpose |
+|---|---|
+| `capability` | `native` (default), `fallback`, `read_only` (discovery only), `legacy` (deprecated by the tool) |
+| `read_paths` | Additional locations scanned during discovery (legacy dirs, shared cross-tool dirs) |
+| `os_paths` | Per-OS overrides of `path`, keyed by `sys.platform` (`linux`, `win32`); `path` itself is the macOS location |
+| `notes` | Caveat surfaced as a tooltip in the UI |
+
+### 2. Pick (or add) a format handler
+
+| Handler | Format | Key options |
+|---|---|---|
+| `json_mcp` | MCP servers in a JSON file | `root_key`, `style` (`standard`/`vscode`/`opencode`), `bridge_remote` |
+| `toml_mcp` | MCP servers in TOML (Codex) | `table` |
+| `markdown_dir` | One `.md` file per item | `suffix`, `frontmatter` (`claude_command`/`copilot_prompt`/`plain`/`claude_agent`/`copilot_agent`) |
+| `skill_dir` | Agent Skills `SKILL.md` folders | — |
+| `toml_command` | Gemini-style `.toml` commands | — |
+| `yaml_workflow` | Warp-style `.yaml` workflows | — |
+| `llm_json` | LLM provider discovery | `root_key` (read-only) |
+
+If the tool uses a genuinely new format, add a handler in
+`backend/engine/handlers/` implementing `read` / `plan_write` /
+`plan_remove` (return `FileChange` objects — never write files directly),
+and register it in `backend/engine/handlers/__init__.py`.
+
+### 3. Register it
+
+In `backend/integrations/__init__.py`, import the manifest and append it to
+`ALL_INTEGRATIONS`.
+
+### 4. Run the tests
+
+```bash
+cd backend && uv run --group dev pytest -v tests/test_manifests.py
 ```
 
-Agent directories contain `.md` files with YAML frontmatter:
+The manifest test suite is parametrised over every integration, so your new
+tool is validated automatically: handler exists and supports the declared
+kind, paths have the right shape (`~`-prefixed global, relative project),
+and no two integrations write conflicting formats to the same file.
 
-```markdown
----
-name: My Agent
-description: A helpful coding assistant
-model: gpt-4
-tools: file_read,file_write
----
-You are a helpful coding assistant that specializes in Python.
+If you added a new handler, add golden round-trip tests for it in
+`tests/test_handlers.py` (write → read back → assert equality with the
+canonical model, plus a "preserves unrelated content" case).
+
+### 5. Manual check
+
+```bash
+./run.sh
 ```
 
-### MCP Only (Global)
+Your tool appears automatically in the UI (target checkboxes, status matrix
+columns, discovery sources) — there is nothing to register in the frontend.
 
-```python
-example_mcp_only = Integration(
-    id="example-mcp-only",
-    display_name="Example MCP Only",
-    color="#D97757",
-    category="desktop",
-    skill_support=False,
-    workflow_support=False,
-    llm_support=False,
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/Library/Application Support/Example/config.json",
-            root_key="mcpServers",
-        ),
-    },
-)
-```
+## Conventions
 
-### Nested Config (MCP inside larger file)
-
-```python
-example_nested = Integration(
-    id="example-nested",
-    display_name="Example Nested",
-    color="#01CBA4",
-    category="editor",
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/Library/Application Support/Example/settings.json",
-            root_key="mcp",
-            format_type="standard",
-            nested=True,
-        ),
-    },
-)
-```
-
-### Read-Only Target
-
-```python
-example_readonly = Integration(
-    id="example-readonly",
-    display_name="Example Read Only",
-    color="#888888",
-    category="editor",
-    mcp={
-        "global": ScopedConfig(
-            config_path="~/.config/example/config.json",
-            read_only=True,
-        ),
-    },
-)
-```
-
-## Finding Configuration Paths
-
-Common locations for AI tool configs:
-
-- **macOS**: `~/Library/Application Support/{Tool}/`
-- **Linux**: `~/.config/{tool}/` or `~/.config/{tool}/`
-- **Project**: `./{tool}rc` or `.{tool}.json` in project root
-
-## Testing Your Integration
-
-1. Start the backend server
-2. Visit the web UI
-3. Your integration should appear in the tool selector
-4. Try reading/writing MCP configs for your tool
-
-## Common Issues
-
-- **Config not found**: Verify the path with `~` expansion works
-- **Parse error**: Check JSON/YAML validity of config file
-- **Write fails**: Ensure file permissions allow writing
-- **Format mismatch**: Verify `root_key` and `format_type` are correct
+- Global paths start with `~`; project paths are relative (no leading `/` or `~`).
+- Directory targets end with `/`; file targets end with an extension.
+- Cite the tool's documentation URL in a comment header at the top of the manifest, and note anything that is UI-only (and therefore not syncable) in `notes`.
