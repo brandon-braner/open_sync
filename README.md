@@ -14,7 +14,7 @@ OpenSync fixes this. Define (or import) everything once in a local registry, pic
 
 ## ✨ Features
 
-- **Five entity types** — MCP servers, Skills (Agent Skills standard `SKILL.md` folders), Commands (slash commands / prompt files / workflows), Subagents, and LLM providers (discovery), each in a central SQLite registry.
+- **Six entity types** — MCP servers, Skills (Agent Skills standard `SKILL.md` folders), Rules/Instructions (synced to CLAUDE.md, AGENTS.md, `.cursor/rules/`, copilot-instructions, …), Commands (slash commands / prompt files / workflows), Subagents, and LLM providers (discovery), each in a central SQLite registry.
 - **Create or import** — Add items in the dashboard, pull them in from the configs of tools you already use, or browse the official MCP Registry.
 - **Stateful sync, not blind overwrite** — OpenSync remembers what it synced where (per-item hashes). Every item shows its live status per tool:
   `✓ in sync · ↑ outdated (registry changed) · ↓ drifted (changed in the tool) · ⚠ conflict · · not synced · ✕ missing`
@@ -28,23 +28,23 @@ OpenSync fixes this. Define (or import) everything once in a local registry, pic
 
 ## 🎯 Supported Integrations
 
-| Tool | MCP | Skills | Commands | Subagents | Notes |
-|------|:---:|:------:|:--------:|:---------:|-------|
-| **Claude Code** | G + P | G + P | G + P | G + P | `~/.claude.json` / `.mcp.json`; skills in `~/.claude/skills/` |
-| **Claude Desktop** | G | — | — | — | Skills/connectors are app-UI only |
-| **Codex** (CLI + IDE) | G + P | G + P | G (legacy) | — | `~/.codex/config.toml` (TOML); prompts deprecated in favour of skills; cloud Codex reads repo-committed skills/AGENTS.md |
-| **GitHub Copilot (VS Code)** | G + P | G + P | P | P | `mcp.json` (root key `servers`), `.github/skills`, `.github/prompts`, `.github/agents` |
-| **GitHub Copilot CLI** | G + P | G + P | — | G + P | Project MCP shared with Claude Code via `.mcp.json` |
-| **Cursor** | G + P | G + P | G + P | G + P | Global "User Rules" are settings-UI only |
-| **Devin** (Devin Desktop, ex-Windsurf) | G | G + P | G + P | P | Writes `.devin/`, still reads `.windsurf/`; `~/.codeium/` paths unchanged |
-| **Gemini CLI** | G + P | G + P | G + P | G + P | TOML slash commands |
-| **OpenCode** | G + P | G + P | G + P | G + P | OpenCode-specific MCP entry format |
-| **Antigravity** | G + P | G + P | G + P | — | Uses the shared `.agents/` dirs |
-| **Warp** | — | G + P | G + P | — | YAML workflows; MCP is app-UI only |
+| Tool | MCP | Skills | Rules | Commands | Subagents | Notes |
+|------|:---:|:------:|:-----:|:--------:|:---------:|-------|
+| **Claude Code** | G + P | G + P | G + P | G + P | G + P | `~/.claude.json` / `.mcp.json`; skills in `~/.claude/skills/`; rules as managed blocks in CLAUDE.md |
+| **Claude Desktop** | G | — | — | — | — | Skills/connectors are app-UI only |
+| **Codex** (CLI + IDE) | G + P | G + P | G + P | G (legacy) | — | `~/.codex/config.toml` (TOML); rules in AGENTS.md; prompts deprecated in favour of skills; cloud Codex reads repo-committed skills/AGENTS.md |
+| **GitHub Copilot (VS Code)** | G + P | G + P | P | P | P | `mcp.json` (root key `servers`), `.github/skills`, `.github/instructions`, `.github/prompts`, `.github/agents` |
+| **GitHub Copilot CLI** | G + P | G + P | — | — | G + P | Project MCP shared with Claude Code via `.mcp.json` |
+| **Cursor** | G + P | G + P | P | G + P | G + P | Rules as `.cursor/rules/*.mdc`; global "User Rules" are settings-UI only |
+| **Devin** (Devin Desktop, ex-Windsurf) | G | G + P | G + P | G + P | P | Writes `.devin/`, still reads `.windsurf/`; `~/.codeium/` paths unchanged |
+| **Gemini CLI** | G + P | G + P | G + P | G + P | G + P | Rules in GEMINI.md; TOML slash commands |
+| **OpenCode** | G + P | G + P | G + P | G + P | G + P | OpenCode-specific MCP entry format; rules in AGENTS.md |
+| **Antigravity** | G + P | G + P | — | G + P | — | Uses the shared `.agents/` dirs |
+| **Warp** | — | G + P | — | G + P | — | YAML workflows; MCP is app-UI only |
 
 G = global scope, P = project scope. LLM providers are currently **discovery-only** (formats differ too much across tools to write back safely).
 
-Cross-tool paths like `.agents/skills/` and `.claude/skills/` are scanned during discovery wherever tools read them.
+Rules synced into shared instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, Devin's global_rules.md) live between `<!-- opensync:rule:… -->` markers — everything you wrote in those files by hand is preserved. Since AGENTS.md is read by Codex, Copilot, Cursor, Devin and others, syncing a rule to Codex at project scope effectively covers every AGENTS.md-aware tool. Cross-tool paths like `.agents/skills/` and `.claude/skills/` are scanned during discovery wherever tools read them.
 
 ---
 

@@ -44,6 +44,17 @@ codex = Integration(
                 read_paths=[".agents/skills/"],
             ),
         },
+        "rule": {
+            "global": EntityTarget(
+                path="~/.codex/AGENTS.md", handler="markdown_blocks"
+            ),
+            "project": EntityTarget(
+                path="AGENTS.md",
+                handler="markdown_blocks",
+                notes="AGENTS.md is shared — Codex, Copilot, Cursor, Devin and "
+                "others all read it.",
+            ),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.codex/prompts/",

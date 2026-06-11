@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS projects_v2 (
 
 CREATE TABLE IF NOT EXISTS entities (
     id          TEXT PRIMARY KEY,
-    kind        TEXT NOT NULL CHECK (kind IN ('mcp','skill','command','subagent','llm')),
+    kind        TEXT NOT NULL CHECK (kind IN ('mcp','skill','rule','command','subagent','llm')),
     name        TEXT NOT NULL,
     scope       TEXT NOT NULL CHECK (scope IN ('global','project')),
     project_id  TEXT REFERENCES projects_v2(id) ON DELETE CASCADE,

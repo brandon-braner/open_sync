@@ -40,6 +40,18 @@ devin = Integration(
                 read_paths=[".windsurf/skills/", ".agents/skills/"],
             ),
         },
+        "rule": {
+            "global": EntityTarget(
+                path="~/.codeium/windsurf/memories/global_rules.md",
+                handler="markdown_blocks",
+            ),
+            "project": EntityTarget(
+                path=".devin/rules/",
+                handler="markdown_dir",
+                options={"suffix": ".md", "frontmatter": "rule_md"},
+                read_paths=[".windsurf/rules/"],
+            ),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.codeium/windsurf/global_workflows/",

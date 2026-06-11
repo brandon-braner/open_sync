@@ -40,6 +40,12 @@ opencode = Integration(
                 read_paths=[".agents/skills/"],
             ),
         },
+        "rule": {
+            "global": EntityTarget(
+                path="~/.config/opencode/AGENTS.md", handler="markdown_blocks"
+            ),
+            "project": EntityTarget(path="AGENTS.md", handler="markdown_blocks"),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.config/opencode/command/",

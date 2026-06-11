@@ -38,6 +38,15 @@ class SkillEntity(BaseModel):
     content: str = ""
 
 
+class RuleEntity(BaseModel):
+    """Rules / custom instructions — a markdown document synced to AGENTS.md,
+    CLAUDE.md, .cursor/rules/, copilot-instructions.md, etc."""
+
+    name: str
+    description: str = ""
+    content: str = ""
+
+
 class CommandEntity(BaseModel):
     """Slash command / prompt file / workflow."""
 
@@ -70,6 +79,7 @@ class LlmProvider(BaseModel):
 KIND_MODELS: dict[str, type[BaseModel]] = {
     "mcp": McpServer,
     "skill": SkillEntity,
+    "rule": RuleEntity,
     "command": CommandEntity,
     "subagent": SubagentEntity,
     "llm": LlmProvider,

@@ -40,6 +40,15 @@ cursor = Integration(
                 read_paths=[".agents/skills/"],
             ),
         },
+        "rule": {
+            "project": EntityTarget(
+                path=".cursor/rules/",
+                handler="markdown_dir",
+                options={"suffix": ".mdc", "frontmatter": "cursor_mdc"},
+                notes="Synced rules are written as always-apply .mdc files. "
+                "Global 'User Rules' live in the Cursor settings UI.",
+            ),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.cursor/commands/",

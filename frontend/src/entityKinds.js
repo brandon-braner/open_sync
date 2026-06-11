@@ -1,5 +1,6 @@
 import { ServerForm } from './components/forms/ServerForm';
 import { SkillForm } from './components/forms/SkillForm';
+import { RuleForm } from './components/forms/RuleForm';
 import { CommandForm } from './components/forms/CommandForm';
 import { AgentForm } from './components/forms/AgentForm';
 import { LlmProviderForm } from './components/forms/LlmProviderForm';
@@ -22,6 +23,14 @@ export const ENTITY_KINDS = [
         label: 'Skills',
         icon: '✨',
         Form: SkillForm,
+        summary: (e) => e.description,
+    },
+    {
+        kind: 'rule',
+        urlKind: 'rules',
+        label: 'Rules',
+        icon: '📜',
+        Form: RuleForm,
         summary: (e) => e.description,
     },
     {

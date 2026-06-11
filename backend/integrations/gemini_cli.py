@@ -41,6 +41,12 @@ gemini_cli = Integration(
                 read_paths=[".agents/skills/"],
             ),
         },
+        "rule": {
+            "global": EntityTarget(
+                path="~/.gemini/GEMINI.md", handler="markdown_blocks"
+            ),
+            "project": EntityTarget(path="GEMINI.md", handler="markdown_blocks"),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.gemini/commands/", handler="toml_command"

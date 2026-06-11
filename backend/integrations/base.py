@@ -16,10 +16,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-EntityKind = Literal["mcp", "skill", "command", "subagent", "llm"]
+EntityKind = Literal["mcp", "skill", "rule", "command", "subagent", "llm"]
 Scope = Literal["global", "project"]
 
-ENTITY_KINDS: tuple[str, ...] = ("mcp", "skill", "command", "subagent", "llm")
+ENTITY_KINDS: tuple[str, ...] = ("mcp", "skill", "rule", "command", "subagent", "llm")
 SCOPES: tuple[str, ...] = ("global", "project")
 
 

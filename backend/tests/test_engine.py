@@ -239,3 +239,38 @@ def test_backup_rotation(env, home, monkeypatch):
         backup_mod.rotate(3)
     runs = list(backup_mod.backups_root().iterdir())
     assert len(runs) == 3
+
+
+# ---------------------------------------------------------------------------
+# Rules
+# ---------------------------------------------------------------------------
+
+
+def test_rule_sync_to_claude_md_and_cursor(env, project):
+    from models import RuleEntity
+    from pathlib import Path
+
+    rule = store.create_entity(
+        "rule",
+        RuleEntity(name="style", description="Style", content="- Be terse"),
+        "project",
+        project.id,
+    )
+    proj = Path(project.path)
+    (proj / "CLAUDE.md").write_text("# Existing project notes\n")
+
+    plan = engine.plan_sync("rule", [rule.id], ["claude_code", "cursor", "codex"])
+    assert not plan.warnings
+    assert engine.apply_plan(plan.plan_id).success
+
+    claude_md = (proj / "CLAUDE.md").read_text()
+    assert "# Existing project notes" in claude_md
+    assert "opensync:rule:style" in claude_md
+    assert (proj / ".cursor" / "rules" / "style.mdc").is_file()
+    assert "opensync:rule:style" in (proj / "AGENTS.md").read_text()
+
+    statuses = engine.status("rule", "project", project.id)
+    cells = {c.integration: c.status for c in statuses[0].cells}
+    assert cells["claude_code"] == "in_sync"
+    assert cells["cursor"] == "in_sync"
+    assert cells["codex"] == "in_sync"

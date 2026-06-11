@@ -290,3 +290,70 @@ def test_llm_json_is_read_only(tmp_path):
     import pytest
     with pytest.raises(NotImplementedError):
         handler.plan_write(tmp_path / "x.json", [], {})
+
+
+# ---------------------------------------------------------------------------
+# markdown_blocks (rules in shared instruction files)
+# ---------------------------------------------------------------------------
+
+from models import RuleEntity
+
+
+def test_markdown_blocks_roundtrip_preserves_user_content(tmp_path):
+    handler = HANDLERS["markdown_blocks"]
+    f = tmp_path / "CLAUDE.md"
+    f.write_text("# My own notes\n\nHand-written instructions stay.\n")
+
+    rule = RuleEntity(name="style", description="Code style", content="- Use strict mode")
+    apply_changes(handler.plan_write(f, [rule], {}))
+
+    text = f.read_text()
+    assert "Hand-written instructions stay." in text
+    assert "<!-- opensync:rule:style | Code style -->" in text
+    assert handler.read(f, {})["style"] == rule
+
+
+def test_markdown_blocks_update_in_place(tmp_path):
+    handler = HANDLERS["markdown_blocks"]
+    f = tmp_path / "AGENTS.md"
+    rule = RuleEntity(name="style", content="v1")
+    apply_changes(handler.plan_write(f, [rule], {}))
+    apply_changes(handler.plan_write(f, [RuleEntity(name="style", content="v2")], {}))
+
+    text = f.read_text()
+    assert text.count("opensync:rule:style") == 2  # one open + one close marker
+    assert handler.read(f, {})["style"].content == "v2"
+
+
+def test_markdown_blocks_multiple_rules_and_remove(tmp_path):
+    handler = HANDLERS["markdown_blocks"]
+    f = tmp_path / "AGENTS.md"
+    apply_changes(handler.plan_write(f, [
+        RuleEntity(name="a", content="aaa"),
+        RuleEntity(name="b", content="bbb"),
+    ], {}))
+    assert set(handler.read(f, {})) == {"a", "b"}
+
+    apply_changes(handler.plan_remove(f, ["a"], {}))
+    assert set(handler.read(f, {})) == {"b"}
+    assert "aaa" not in f.read_text()
+
+
+def test_markdown_dir_cursor_mdc_rule(tmp_path):
+    handler = HANDLERS["markdown_dir"]
+    opts = {"suffix": ".mdc", "frontmatter": "cursor_mdc"}
+    rule = RuleEntity(name="api-style", description="API conventions", content="REST only.")
+    apply_changes(handler.plan_write(tmp_path, [rule], opts))
+    text = (tmp_path / "api-style.mdc").read_text()
+    assert "alwaysApply: true" in text
+    assert handler.read(tmp_path, opts)["api-style"] == rule
+
+
+def test_markdown_dir_copilot_instructions_rule(tmp_path):
+    handler = HANDLERS["markdown_dir"]
+    opts = {"suffix": ".instructions.md", "frontmatter": "copilot_instructions"}
+    rule = RuleEntity(name="security", description="Sec rules", content="No secrets in code.")
+    apply_changes(handler.plan_write(tmp_path, [rule], opts))
+    text = (tmp_path / "security.instructions.md").read_text()
+    assert "applyTo: '**'" in text or 'applyTo: "**"' in text
+    assert handler.read(tmp_path, opts)["security"] == rule

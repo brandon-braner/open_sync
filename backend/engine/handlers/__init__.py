@@ -8,6 +8,7 @@ plans that the sync engine diffs, backs up, and applies.
 from engine.handlers.base import FileChange, FormatHandler  # noqa: F401
 from engine.handlers.json_mcp import JsonMcpHandler
 from engine.handlers.llm_json import LlmJsonHandler
+from engine.handlers.markdown_blocks import MarkdownBlocksHandler
 from engine.handlers.markdown_dir import MarkdownDirHandler
 from engine.handlers.skill_dir import SkillDirHandler
 from engine.handlers.toml_command import TomlCommandHandler
@@ -20,6 +21,7 @@ HANDLERS: dict[str, FormatHandler] = {
         JsonMcpHandler(),
         TomlMcpHandler(),
         MarkdownDirHandler(),
+        MarkdownBlocksHandler(),
         SkillDirHandler(),
         TomlCommandHandler(),
         YamlWorkflowHandler(),

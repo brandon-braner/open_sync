@@ -44,6 +44,12 @@ claude_code = Integration(
                 legacy_marker_paths=["CLAUDE.md"],
             ),
         },
+        "rule": {
+            "global": EntityTarget(
+                path="~/.claude/CLAUDE.md", handler="markdown_blocks"
+            ),
+            "project": EntityTarget(path="CLAUDE.md", handler="markdown_blocks"),
+        },
         "command": {
             "global": EntityTarget(
                 path="~/.claude/commands/",

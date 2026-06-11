@@ -42,6 +42,16 @@ vscode_github_copilot = Integration(
                 read_paths=[".claude/skills/", ".agents/skills/"],
             ),
         },
+        "rule": {
+            "project": EntityTarget(
+                path=".github/instructions/",
+                handler="markdown_dir",
+                options={"suffix": ".instructions.md",
+                         "frontmatter": "copilot_instructions"},
+                notes="Repo-wide .github/copilot-instructions.md and AGENTS.md "
+                "are also read by Copilot; sync to Codex to manage AGENTS.md.",
+            ),
+        },
         "command": {
             "project": EntityTarget(
                 path=".github/prompts/",

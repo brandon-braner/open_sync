@@ -20,6 +20,7 @@ router = APIRouter(tags=["entities"])
 _URL_KINDS = {
     "mcp": "mcp",
     "skills": "skill",
+    "rules": "rule",
     "commands": "command",
     "subagents": "subagent",
     "llm": "llm",

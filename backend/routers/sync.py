@@ -13,6 +13,8 @@ _KIND_ALIASES = {
     "mcp": "mcp",
     "skills": "skill",
     "skill": "skill",
+    "rules": "rule",
+    "rule": "rule",
     "commands": "command",
     "command": "command",
     "subagents": "subagent",
