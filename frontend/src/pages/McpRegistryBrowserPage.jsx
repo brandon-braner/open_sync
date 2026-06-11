@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../../api';
+import { api } from '../api';
 
-export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, selectedProject, setSelectedProject }) {
+export function McpRegistryBrowserPage({ addToast, scope, projectId, projects }) {
     const [results, setResults] = useState([]);
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
@@ -11,33 +11,17 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
     const [imported, setImported] = useState(new Set());
 
     const debounceRef = useRef(null);
+    const projectName = projects.find((p) => p.id === projectId)?.name;
 
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
-
-    useEffect(() => {
-        doSearch('', null, false);
-    }, []);
+    useEffect(() => () => clearTimeout(debounceRef.current), []);
+    useEffect(() => { doSearch('', null, false); }, []);
 
     const doSearch = async (q, cursor, append) => {
-        if (cursor) {
-            setLoadingMore(true);
-        } else {
-            setLoading(true);
-        }
+        cursor ? setLoadingMore(true) : setLoading(true);
         try {
             const data = await api.searchMcpRegistry(q, cursor, 20);
             const servers = data.servers || [];
-            if (append) {
-                setResults(prev => [...prev, ...servers]);
-            } else {
-                setResults(servers);
-            }
+            setResults((prev) => (append ? [...prev, ...servers] : servers));
             setNextCursor(data.metadata?.nextCursor || null);
         } catch (err) {
             addToast(`Registry search failed: ${err.message}`, 'error');
@@ -50,28 +34,21 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
     const handleQueryChange = (e) => {
         const val = e.target.value;
         setQuery(val);
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-            doSearch(val, null, false);
-        }, 400);
-    };
-
-    const handleLoadMore = () => {
-        if (nextCursor) doSearch(query, nextCursor, true);
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => doSearch(val, null, false), 400);
     };
 
     const handleImport = async (serverName) => {
-        setImporting(prev => new Set(prev).add(serverName));
+        setImporting((prev) => new Set(prev).add(serverName));
         try {
-            const projName = scope === 'project' ? selectedProject : null;
-            await api.importFromMcpRegistry(serverName, scope, projName);
-            setImported(prev => new Set(prev).add(serverName));
-            const dest = scope === 'project' ? `project "${selectedProject}"` : 'global registry';
+            await api.importFromMcpRegistry(serverName, scope, projectId);
+            setImported((prev) => new Set(prev).add(serverName));
+            const dest = scope === 'project' ? `project "${projectName}"` : 'global registry';
             addToast(`Imported to ${dest} ✓`, 'success');
         } catch (err) {
             addToast(`Import failed: ${err.message}`, 'error');
         } finally {
-            setImporting(prev => {
+            setImporting((prev) => {
                 const next = new Set(prev);
                 next.delete(serverName);
                 return next;
@@ -81,45 +58,25 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
 
     const typeLabel = (pkg) => {
         if (!pkg) return null;
-        const rt = pkg.registryType;
         const map = { npm: '📦 npm', pypi: '🐍 PyPI', oci: '🐳 Docker', nuget: '🟣 NuGet', mcpb: '📎 MCPB' };
-        return map[rt] || rt;
+        return map[pkg.registryType] || pkg.registryType;
     };
 
+    const importBlocked = scope === 'project' && !projectId;
+
     return (
-        <div className="registry-page">
+        <div className="page registry-page">
             <div className="registry-header">
-                <h2>🔍 Browse MCP Registry</h2>
+                <h2>🌐 Browse MCP Registry</h2>
                 <p className="registry-subtitle">
-                    Discover servers from the <a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noreferrer">official MCP Registry</a> and import them with one click
+                    Discover servers from the <a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noreferrer">official MCP Registry</a> and
+                    import them into the {scope === 'project' ? `"${projectName || '…'}" project` : 'global'} registry
                 </p>
             </div>
 
-            <div className="browse-scope-bar">
-                <label className="browse-scope-label">Import to:</label>
-                <select
-                    className="project-select"
-                    value={scope}
-                    onChange={(e) => { setScope(e.target.value); setImported(new Set()); }}
-                >
-                    <option value="global">🌐 Global Registry</option>
-                    {projects.map(p => (
-                        <option key={p.name} value="project">{`📁 ${p.name}`}</option>
-                    ))}
-                </select>
-                {scope === 'project' && (
-                    <select
-                        className="project-select"
-                        value={selectedProject || ''}
-                        onChange={(e) => setSelectedProject(e.target.value || null)}
-                    >
-                        <option value="">— Select project —</option>
-                        {projects.map(p => (
-                            <option key={p.name} value={p.name}>{p.name}</option>
-                        ))}
-                    </select>
-                )}
-            </div>
+            {importBlocked && (
+                <p className="hint">Select a project in the scope bar above to import at project scope.</p>
+            )}
 
             <div className="browse-search-bar">
                 <input
@@ -144,7 +101,6 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
             <div className="browse-results">
                 {results.map((entry) => {
                     const srv = entry.server || entry;
-                    const meta = entry._meta?.['io.modelcontextprotocol.registry/official'] || {};
                     const pkg = (srv.packages || [])[0];
                     const remote = (srv.remotes || [])[0];
                     const repo = srv.repository?.url;
@@ -159,19 +115,9 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
                                     {srv.title || srv.name.split('/').pop()}
                                 </div>
                                 <div className="browse-card-badges">
-                                    {pkg && (
-                                        <span className="browse-badge browse-badge-type">
-                                            {typeLabel(pkg)}
-                                        </span>
-                                    )}
-                                    <span className="browse-badge browse-badge-transport">
-                                        {transport}
-                                    </span>
-                                    {srv.version && (
-                                        <span className="browse-badge browse-badge-version">
-                                            v{srv.version}
-                                        </span>
-                                    )}
+                                    {pkg && <span className="browse-badge browse-badge-type">{typeLabel(pkg)}</span>}
+                                    <span className="browse-badge browse-badge-transport">{transport}</span>
+                                    {srv.version && <span className="browse-badge browse-badge-version">v{srv.version}</span>}
                                 </div>
                             </div>
                             <div className="browse-card-name">{srv.name}</div>
@@ -184,7 +130,7 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
                             <div className="browse-card-actions">
                                 <button
                                     className={`btn btn-primary btn-sm browse-import-btn${isImported ? ' imported' : ''}`}
-                                    disabled={isImporting || isImported || (scope === 'project' && !selectedProject)}
+                                    disabled={isImporting || isImported || importBlocked}
                                     onClick={() => handleImport(srv.name)}
                                 >
                                     {isImported ? '✓ Imported' : isImporting ? '⏳ Importing…' : '⚡ Import'}
@@ -197,11 +143,7 @@ export function McpRegistryBrowserPage({ addToast, projects, scope, setScope, se
 
             {nextCursor && (
                 <div className="browse-load-more">
-                    <button
-                        className="btn btn-secondary"
-                        onClick={handleLoadMore}
-                        disabled={loadingMore}
-                    >
+                    <button className="btn btn-secondary" onClick={() => doSearch(query, nextCursor, true)} disabled={loadingMore}>
                         {loadingMore ? '⏳ Loading…' : '↓ Load More'}
                     </button>
                 </div>

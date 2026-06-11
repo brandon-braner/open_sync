@@ -1625,3 +1625,311 @@ header p {
   border-radius: 2px;
   padding: 0 3px;
 }
+/* ============================================================ */
+/* ==== OpenSync v2 shell: sidebar + scope bar + entity page === */
+/* ============================================================ */
+
+.app-shell {
+  max-width: none;
+  display: flex;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border, #2d333b);
+  padding: 1.5rem 0.75rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 1.25rem 0.5rem 0.4rem;
+}
+
+.sidebar-section:first-child { margin-top: 0; }
+
+.sidebar-link {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.sidebar-link:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary, #e6edf3); }
+.sidebar-link.active { background: rgba(88, 166, 255, 0.12); color: var(--accent, #58a6ff); }
+.sidebar-icon { margin-right: 0.4rem; }
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 2rem 3rem;
+}
+
+.main-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.main-header h1 { font-size: 1.6rem; }
+.main-header p { color: var(--text-secondary); font-size: 0.85rem; }
+
+/* Scope bar */
+.scope-bar { display: flex; align-items: center; gap: 0.6rem; }
+.scope-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.scope-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.scope-btn.active { background: rgba(88, 166, 255, 0.15); color: var(--accent, #58a6ff); }
+
+/* Entity page */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.page-header h2 { margin-right: auto; }
+
+.page-tabs { display: inline-flex; gap: 0.25rem; }
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tab-btn.active {
+  border-color: var(--border, #2d333b);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #e6edf3);
+}
+
+.hint { color: var(--text-secondary); font-size: 0.85rem; margin: 0.75rem 0; }
+
+.editor-panel {
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+.editor-panel h3 { margin-bottom: 0.9rem; }
+
+/* Sync toolbar */
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+.sync-toolbar-label { font-size: 0.82rem; color: var(--text-secondary); }
+.target-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border, #2d333b);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Sync matrix */
+.matrix-wrap { overflow-x: auto; }
+.sync-matrix { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.sync-matrix th, .sync-matrix td {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+  text-align: left;
+  white-space: nowrap;
+}
+.sync-matrix th {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.sync-matrix .col-pill { text-align: center; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.sync-matrix .col-summary {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+}
+.sync-matrix .col-name { font-weight: 600; }
+.sync-matrix .col-actions { text-align: right; }
+.col-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+/* Status pills */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pill-clickable { cursor: pointer; }
+.pill-clickable:hover { filter: brightness(1.35); }
+.pill-insync { background: rgba(63, 185, 80, 0.18); color: #3fb950; }
+.pill-outdated { background: rgba(88, 166, 255, 0.18); color: #58a6ff; }
+.pill-drifted { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+.pill-conflict { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+.pill-notsynced { background: rgba(139, 148, 158, 0.12); color: #8b949e; }
+.pill-missing { background: rgba(248, 81, 73, 0.12); color: #f85149; }
+.pill-unsupported { background: transparent; color: #484f58; }
+
+/* Modal + diff */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+.modal {
+  background: var(--bg-secondary, #161b22);
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 12px;
+  padding: 1.25rem;
+  max-width: 760px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+.diff-modal { max-width: 860px; }
+
+.plan-warnings { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.plan-warning {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  background: rgba(210, 153, 34, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+.plan-warning.warning-conflict { border-color: rgba(248, 81, 73, 0.4); background: rgba(248, 81, 73, 0.08); }
+.plan-warning-actions { display: inline-flex; gap: 0.4rem; flex-shrink: 0; }
+
+.plan-change { margin-bottom: 1.1rem; }
+.plan-change-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+.plan-change-header code { color: var(--text-secondary); font-size: 0.78rem; }
+
+.diff-view {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+  white-space: pre;
+}
+.diff-add { color: #3fb950; background: rgba(63, 185, 80, 0.08); }
+.diff-del { color: #f85149; background: rgba(248, 81, 73, 0.08); }
+.diff-hunk { color: #58a6ff; }
+
+/* Import tab */
+.import-toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+.import-panel .import-list { max-height: none; }
+.import-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+}
+.import-item label { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; min-width: 0; }
+.import-desc { color: var(--text-secondary); }
+.badge-warn { background: rgba(210, 153, 34, 0.25); margin-left: 0.5rem; }
+
+/* Projects page */
+.project-list { list-style: none; margin-top: 1.25rem; }
+.project-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+}
+.project-path {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+@media (max-width: 860px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { width: auto; height: auto; position: static; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .sidebar-section { display: none; }
+}

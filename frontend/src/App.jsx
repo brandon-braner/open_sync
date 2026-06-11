@@ -1,30 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from './api';
 import { useHashRoute } from './hooks/useHashRoute';
+import { ENTITY_KINDS, kindByUrl } from './entityKinds';
 
 import { ToastContainer } from './components/ui/ToastContainer';
-import { NavBar, hashToSubScope } from './components/NavBar';
-import { SyncPage } from './components/sync/SyncPage';
-
-import { GlobalRegistryPage, ProjectRegistryPage } from './pages/servers/ServerRegistryPages';
-import { McpRegistryBrowserPage } from './pages/servers/McpRegistryBrowserPage';
-import { GlobalSkillsPage, ProjectSkillsPage } from './pages/skills/SkillsPages';
-import { GlobalWorkflowsPage, ProjectWorkflowsPage } from './pages/workflows/WorkflowsPages';
-import { GlobalLlmProvidersPage, ProjectLlmProvidersPage } from './pages/llm/LlmProvidersPages';
-import { GlobalAgentsPage, ProjectAgentsPage } from './pages/agents/AgentsPages';
+import { Sidebar } from './components/layout/Sidebar';
+import { ScopeBar } from './components/ScopeBar';
+import { EntityPage } from './pages/EntityPage';
+import { ProjectsPage } from './pages/ProjectsPage';
+import { McpRegistryBrowserPage } from './pages/McpRegistryBrowserPage';
 
 export default function App() {
     const route = useHashRoute();
     const [projects, setProjects] = useState([]);
-    const [scope, setScope] = useState('global');
-    const [selectedProject, setSelectedProject] = useState(null);
+    const [integrations, setIntegrations] = useState([]);
+    const [scope, setScope] = useState(() => localStorage.getItem('opensync.scope') || 'global');
+    const [projectId, setProjectId] = useState(() => localStorage.getItem('opensync.projectId') || null);
     const [toasts, setToasts] = useState([]);
+    const toastId = useRef(0);
 
-    let toastId = 0;
+    useEffect(() => { localStorage.setItem('opensync.scope', scope); }, [scope]);
+    useEffect(() => {
+        if (projectId) localStorage.setItem('opensync.projectId', projectId);
+        else localStorage.removeItem('opensync.projectId');
+    }, [projectId]);
+
     const addToast = useCallback((message, type = 'info') => {
-        const id = Date.now() + ++toastId;
+        const id = Date.now() + ++toastId.current;
         setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
     }, []);
 
     const dismissToast = useCallback((id) => {
@@ -33,100 +37,115 @@ export default function App() {
 
     const loadProjects = useCallback(async () => {
         try {
-            const p = await api.getProjects();
-            setProjects(p);
+            setProjects(await api.getProjects());
         } catch (err) {
             addToast(`Failed to load projects: ${err.message}`, 'error');
         }
     }, [addToast]);
 
-    useEffect(() => { loadProjects(); }, [loadProjects]);
-
     useEffect(() => {
-        const subScope = hashToSubScope(route);
-        setScope(subScope);
-    }, [route]);
+        loadProjects();
+        api.getIntegrations()
+            .then(setIntegrations)
+            .catch((err) => addToast(`Failed to load integrations: ${err.message}`, 'error'));
+    }, [loadProjects, addToast]);
 
     const handleAddProject = async (name, path) => {
         try {
             const result = await api.addProject(name, path);
-            const imported = result.imported_servers || [];
-            const msg = imported.length > 0
-                ? `Project "${name}" added — imported ${imported.length} server${imported.length > 1 ? 's' : ''}: ${imported.join(', ')}`
-                : `Project "${name}" added`;
-            addToast(msg, 'success');
+            const counts = Object.entries(result.imported || {})
+                .map(([kind, names]) => `${names.length} ${kind}`)
+                .join(', ');
+            addToast(
+                counts ? `Project "${name}" added — imported ${counts}` : `Project "${name}" added`,
+                'success',
+            );
             await loadProjects();
-            setSelectedProject(name);
+            setProjectId(result.project.id);
+            setScope('project');
         } catch (err) {
             addToast(`Failed to add project: ${err.message}`, 'error');
+            throw err;
         }
     };
 
-    const handleRemoveProject = async (name) => {
+    const handleRemoveProject = async (project) => {
+        if (!window.confirm(`Remove project "${project.name}" and its registry entries?\n(Files in ${project.path} are not touched.)`)) return;
         try {
-            await api.removeProject(name);
-            addToast(`Project "${name}" removed`, 'success');
-            if (selectedProject === name) setSelectedProject(null);
+            await api.removeProject(project.id);
+            addToast(`Project "${project.name}" removed`, 'success');
+            if (projectId === project.id) setProjectId(null);
             await loadProjects();
         } catch (err) {
             addToast(`Failed to remove project: ${err.message}`, 'error');
         }
     };
 
-    const sharedProjectProps = {
-        projects, addToast, onAddProject: handleAddProject, onRemoveProject: handleRemoveProject,
-        selectedProject, setSelectedProject, scope, setScope,
-    };
-
     let page;
-    switch (route) {
-        // MCP Servers
-        case '#/servers/sync': page = <SyncPage type="servers" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
-        case '#/servers/global': page = <GlobalRegistryPage addToast={addToast} />; break;
-        case '#/servers/project': page = <ProjectRegistryPage {...sharedProjectProps} />; break;
-        case '#/servers/browse': page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />; break;
-        // Skills
-        case '#/skills/sync': page = <SyncPage type="skills" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
-        case '#/skills/global': page = <GlobalSkillsPage addToast={addToast} projects={projects} />; break;
-        case '#/skills/project': page = <ProjectSkillsPage {...sharedProjectProps} />; break;
-        // Workflows
-        case '#/workflows/sync': page = <SyncPage type="workflows" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
-        case '#/workflows/global': page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />; break;
-        case '#/workflows/project': page = <ProjectWorkflowsPage {...sharedProjectProps} />; break;
-        // LLM Providers
-        case '#/llm/sync': page = <SyncPage type="llm" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
-        case '#/llm/global': page = <GlobalLlmProvidersPage addToast={addToast} />; break;
-        case '#/llm/project': page = <ProjectLlmProvidersPage {...sharedProjectProps} />; break;
-        // Agents
-        case '#/agents/sync': page = <SyncPage type="agents" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />; break;
-        case '#/agents/global': page = <GlobalAgentsPage addToast={addToast} projects={projects} />; break;
-        case '#/agents/project': page = <ProjectAgentsPage {...sharedProjectProps} />; break;
-        // Legacy URL aliases
-        case '#/registry/global': page = <GlobalRegistryPage addToast={addToast} />; break;
-        case '#/registry/project': page = <ProjectRegistryPage {...sharedProjectProps} />; break;
-        case '#/registry/browse': page = <McpRegistryBrowserPage addToast={addToast} projects={projects} scope={scope} setScope={setScope} selectedProject={selectedProject} setSelectedProject={setSelectedProject} />; break;
-        case '#/registry/skills/global': page = <GlobalSkillsPage addToast={addToast} projects={projects} />; break;
-        case '#/registry/skills/project': page = <ProjectSkillsPage {...sharedProjectProps} />; break;
-        case '#/registry/workflows/global': page = <GlobalWorkflowsPage addToast={addToast} projects={projects} />; break;
-        case '#/registry/workflows/project': page = <ProjectWorkflowsPage {...sharedProjectProps} />; break;
-        case '#/registry/llm/global': page = <GlobalLlmProvidersPage addToast={addToast} />; break;
-        case '#/registry/llm/project': page = <ProjectLlmProvidersPage {...sharedProjectProps} />; break;
-        default:
-            page = <SyncPage type="servers" addToast={addToast} projects={projects} selectedProject={selectedProject} setSelectedProject={setSelectedProject} onAddProject={handleAddProject} onRemoveProject={handleRemoveProject} />;
+    const kindMatch = route.match(/^#\/k\/([a-z]+)/);
+    if (kindMatch && kindByUrl(kindMatch[1])) {
+        const cfg = kindByUrl(kindMatch[1]);
+        page = (
+            <EntityPage
+                key={`${cfg.kind}-${scope}-${projectId}`}
+                cfg={cfg}
+                scope={scope}
+                projectId={scope === 'project' ? projectId : null}
+                integrations={integrations}
+                addToast={addToast}
+            />
+        );
+    } else if (route.startsWith('#/projects')) {
+        page = (
+            <ProjectsPage
+                projects={projects}
+                onAddProject={handleAddProject}
+                onRemoveProject={handleRemoveProject}
+            />
+        );
+    } else if (route.startsWith('#/browse')) {
+        page = (
+            <McpRegistryBrowserPage
+                addToast={addToast}
+                scope={scope}
+                projectId={scope === 'project' ? projectId : null}
+                projects={projects}
+            />
+        );
+    } else {
+        const cfg = ENTITY_KINDS[0];
+        page = (
+            <EntityPage
+                key={`${cfg.kind}-${scope}-${projectId}`}
+                cfg={cfg}
+                scope={scope}
+                projectId={scope === 'project' ? projectId : null}
+                integrations={integrations}
+                addToast={addToast}
+            />
+        );
     }
 
     return (
-        <div className="app">
+        <div className="app app-shell">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-
-            <header>
-                <h1>⚡ OpenSync</h1>
-                <p>Sync AI Artifacts across all your AI agents & IDEs</p>
-            </header>
-
-            <NavBar currentHash={route} />
-
-            {page}
+            <Sidebar route={route} />
+            <div className="main">
+                <header className="main-header">
+                    <div>
+                        <h1>⚡ OpenSync</h1>
+                        <p>One registry for your MCP servers, skills, commands &amp; agents</p>
+                    </div>
+                    <ScopeBar
+                        scope={scope}
+                        setScope={setScope}
+                        projects={projects}
+                        projectId={projectId}
+                        setProjectId={setProjectId}
+                    />
+                </header>
+                {page}
+            </div>
         </div>
     );
 }
