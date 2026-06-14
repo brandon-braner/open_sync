@@ -23,7 +23,10 @@ export const ENTITY_KINDS = [
         label: 'Skills',
         icon: '✨',
         Form: SkillForm,
-        summary: (e) => e.description,
+        summary: (e) => {
+            const count = Object.keys(e.data?.files || {}).length;
+            return count ? `${e.description} · ${count} file${count > 1 ? 's' : ''}` : e.description;
+        },
     },
     {
         kind: 'rule',

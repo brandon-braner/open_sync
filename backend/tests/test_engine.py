@@ -208,6 +208,83 @@ def test_skill_sync_writes_skill_md_and_cleans_markers(env, home):
     assert "Keep this." in cleaned
 
 
+def test_skill_sync_carries_supporting_files(env, home):
+    import base64
+
+    from opensync.models import SkillFile
+
+    png = b"\x89PNG\r\n\x1a\n\xff\x00"
+    skill = store.create_entity(
+        "skill",
+        SkillEntity(
+            name="pdf",
+            description="PDFs",
+            content="Use the script.",
+            files={
+                "scripts/extract.py": SkillFile(data="print('extract')"),
+                "assets/logo.png": SkillFile(
+                    encoding="base64", data=base64.b64encode(png).decode()
+                ),
+            },
+        ),
+        "global",
+        None,
+    )
+    plan = engine.plan_sync("skill", [skill.id], ["claude_code", "cursor"])
+    assert not plan.warnings
+    binary_diffs = [c.diff for c in plan.changes if "logo.png" in c.file_path]
+    assert binary_diffs and binary_diffs[0].startswith("Binary file")
+    assert engine.apply_plan(plan.plan_id).success
+
+    for tool_dir in (".claude", ".cursor"):
+        skill_dir = home / tool_dir / "skills" / "pdf"
+        assert (skill_dir / "scripts" / "extract.py").read_text() == "print('extract')"
+        assert (skill_dir / "assets" / "logo.png").read_bytes() == png
+
+    statuses = engine.status("skill", "global")
+    cells = {c.integration: c.status for c in statuses[0].cells}
+    assert cells["claude_code"] == "in_sync"
+    assert cells["cursor"] == "in_sync"
+
+    # Editing a supporting file in one tool is drift, and pull captures it.
+    (home / ".claude" / "skills" / "pdf" / "scripts" / "extract.py").write_text(
+        "print('v2')"
+    )
+    statuses = engine.status("skill", "global")
+    cells = {c.integration: c.status for c in statuses[0].cells}
+    assert cells["claude_code"] == "drifted"
+    updated = engine.pull(skill.id, "claude_code")
+    assert updated.data["files"]["scripts/extract.py"]["data"] == "print('v2')"
+
+
+def test_skill_sync_removes_stale_files_and_prunes_dirs(env, home):
+    from opensync.models import SkillFile
+
+    skill = store.create_entity(
+        "skill",
+        SkillEntity(
+            name="pdf",
+            content="body",
+            files={"scripts/old.py": SkillFile(data="old")},
+        ),
+        "global",
+        None,
+    )
+    plan = engine.plan_sync("skill", [skill.id], ["claude_code"])
+    assert engine.apply_plan(plan.plan_id).success
+
+    store.update_entity(
+        skill.id,
+        SkillEntity(name="pdf", content="body", files={}),
+    )
+    plan = engine.plan_sync("skill", [skill.id], ["claude_code"])
+    assert engine.apply_plan(plan.plan_id).success
+
+    skill_dir = home / ".claude" / "skills" / "pdf"
+    assert not (skill_dir / "scripts").exists()  # emptied dir pruned
+    assert (skill_dir / "SKILL.md").is_file()
+
+
 # ---------------------------------------------------------------------------
 # Backups
 # ---------------------------------------------------------------------------

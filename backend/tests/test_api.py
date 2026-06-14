@@ -113,3 +113,59 @@ def test_projects_auto_import(client, env):
         "/api/mcp", params={"scope": "project", "project_id": project_id}
     ).json()
     assert entities[0]["name"] == "db"
+
+
+def test_create_skill_with_files_syncs_to_disk(client, home):
+    """A skill created in-app with bundled files + executable script lands
+    on disk with content and mode intact."""
+    import base64
+    import os
+    import stat
+
+    png = b"\x89PNG\r\n\x1a\n\x00\x01\x02"
+    resp = client.post(
+        "/api/skills",
+        json={
+            "name": "pdf",
+            "description": "PDFs",
+            "content": "Use the script.",
+            "scope": "global",
+            "files": {
+                "scripts/run.sh": {
+                    "encoding": "text",
+                    "data": "#!/usr/bin/env bash\necho hi\n",
+                    "executable": True,
+                },
+                "logo.png": {
+                    "encoding": "base64",
+                    "data": base64.b64encode(png).decode(),
+                },
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    entity = resp.json()
+    assert entity["data"]["files"]["scripts/run.sh"]["executable"] is True
+
+    plan = client.post(
+        "/api/sync/plan",
+        json={
+            "kind": "skill",
+            "entity_ids": [entity["id"]],
+            "integrations": ["claude_code"],
+        },
+    ).json()
+    assert plan["changes"]
+    assert client.post(
+        "/api/sync/apply", json={"plan_id": plan["plan_id"]}
+    ).json()["success"]
+
+    skill_dir = home / ".claude" / "skills" / "pdf"
+    run_sh = skill_dir / "scripts" / "run.sh"
+    assert run_sh.read_text() == "#!/usr/bin/env bash\necho hi\n"
+    assert stat.S_IMODE(os.stat(run_sh).st_mode) & 0o111, "execute bit not preserved"
+    assert (skill_dir / "logo.png").read_bytes() == png
+
+    statuses = client.get("/api/skills/status").json()
+    cell = next(c for c in statuses[0]["cells"] if c["integration"] == "claude_code")
+    assert cell["status"] == "in_sync"

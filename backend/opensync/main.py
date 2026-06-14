@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from opensync.db import init_db
 from opensync.routers import api_router
+from opensync.routers.lsp import router as lsp_router
 
 # Initialize SQLite database (creates v2 tables, migrates a v1 db on first run)
 init_db()
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(lsp_router)  # WebSocket bridge at /ws/lsp/{language}
 
 
 # Serve the built frontend: bundled into the wheel as opensync/static,

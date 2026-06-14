@@ -11,6 +11,7 @@ caller explicitly forces them.
 
 from __future__ import annotations
 
+import base64
 import difflib
 import os
 import re
@@ -392,14 +393,20 @@ def plan_sync(
         changes = [c for c in changes if not c.is_noop]
 
         for change in changes:
-            diff = "".join(
-                difflib.unified_diff(
-                    (change.before or "").splitlines(keepends=True),
-                    (change.after or "").splitlines(keepends=True),
-                    fromfile=str(change.path),
-                    tofile=str(change.path),
+            if change.binary:
+                diff = _binary_diff_note(change)
+            else:
+                diff = "".join(
+                    difflib.unified_diff(
+                        (change.before or "").splitlines(keepends=True),
+                        (change.after or "").splitlines(keepends=True),
+                        fromfile=str(change.path),
+                        tofile=str(change.path),
+                    )
                 )
-            )
+            if change.mode is not None:
+                kind = "executable" if change.mode & 0o111 else "non-executable"
+                diff = f"{diff}(mode → {change.mode & 0o777:o}, {kind})\n"
             plan_changes.append(
                 PlanChange(
                     integration=integration_id,
@@ -445,11 +452,41 @@ def _prune_plan_cache() -> None:
         del _PLAN_CACHE[plan_id]
 
 
-def _write_atomic(path: Path, content: str) -> None:
+def _binary_diff_note(change: FileChange) -> str:
+    size = lambda s: len(base64.b64decode(s)) if s else 0  # noqa: E731
+    if change.before is None:
+        return f"Binary file {change.path} added ({size(change.after)} bytes)\n"
+    if change.after is None:
+        return f"Binary file {change.path} deleted ({size(change.before)} bytes)\n"
+    return (
+        f"Binary file {change.path} changed "
+        f"({size(change.before)} → {size(change.after)} bytes)\n"
+    )
+
+
+def _write_atomic(path: Path, content: str | bytes, mode: int | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".opensync-tmp")
-    tmp.write_text(content, encoding="utf-8")
+    if isinstance(content, bytes):
+        tmp.write_bytes(content)
+    else:
+        tmp.write_text(content, encoding="utf-8")
+    if mode is not None:
+        os.chmod(tmp, mode)
     os.replace(tmp, path)
+
+
+def _prune_empty_dirs(start: Path, stop: Optional[Path]) -> None:
+    """Remove empty directories from start up to (but not including) stop."""
+    if stop is None or stop not in start.parents:
+        return
+    d = start
+    while d != stop:
+        try:
+            d.rmdir()  # raises if missing or not empty
+        except OSError:
+            return
+        d = d.parent
 
 
 def apply_plan(plan_id: str) -> ApplyResult:
@@ -473,8 +510,11 @@ def apply_plan(plan_id: str) -> ApplyResult:
     for change in cached.changes:
         if change.after is None:
             change.path.unlink(missing_ok=True)
+            _prune_empty_dirs(change.path.parent, change.prune_parents_to)
+        elif change.binary:
+            _write_atomic(change.path, base64.b64decode(change.after), mode=change.mode)
         else:
-            _write_atomic(change.path, change.after)
+            _write_atomic(change.path, change.after, mode=change.mode)
         written.append(str(change.path))
 
     for entity_id, integration, scope, project_id, target_path, h in (

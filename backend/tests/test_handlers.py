@@ -1,21 +1,28 @@
 """Golden tests for every format handler: read → canonical, plan_write
 round-trips, and preservation of unrelated content."""
 
+import base64
 import json
+import os
 
 import tomlkit
 
 from opensync.engine.handlers import HANDLERS
-from opensync.models import CommandEntity, McpServer, SkillEntity, SubagentEntity
+from opensync.models import CommandEntity, McpServer, SkillEntity, SkillFile, SubagentEntity
 
 
 def apply_changes(changes):
     for change in changes:
         if change.after is None:
             change.path.unlink(missing_ok=True)
+        elif change.binary:
+            change.path.parent.mkdir(parents=True, exist_ok=True)
+            change.path.write_bytes(base64.b64decode(change.after))
         else:
             change.path.parent.mkdir(parents=True, exist_ok=True)
             change.path.write_text(change.after, encoding="utf-8")
+        if change.mode is not None and change.after is not None:
+            os.chmod(change.path, change.mode)
 
 
 # ---------------------------------------------------------------------------
@@ -224,17 +231,167 @@ def test_skill_dir_roundtrip(tmp_path):
     assert handler.read(tmp_path, {})["pdf-tools"] == skill
 
 
-def test_skill_dir_leaves_supporting_files(tmp_path):
+def test_skill_dir_reads_supporting_files(tmp_path):
+    handler = HANDLERS["skill_dir"]
+    skill_dir = tmp_path / "helper"
+    (skill_dir / "scripts").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n\nbody\n")
+    (skill_dir / "scripts" / "run.py").write_text("print('hi')")
+    png = b"\x89PNG\r\n\x1a\n\x00\x01\x02"
+    (skill_dir / "logo.png").write_bytes(png)
+    (skill_dir / ".DS_Store").write_bytes(b"junk")
+
+    skill = handler.read(tmp_path, {})["helper"]
+    assert skill.files["scripts/run.py"] == SkillFile(
+        encoding="text", data="print('hi')"
+    )
+    assert skill.files["logo.png"] == SkillFile(
+        encoding="base64", data=base64.b64encode(png).decode()
+    )
+    assert ".DS_Store" not in skill.files
+
+
+def test_skill_dir_full_roundtrip_with_files(tmp_path):
+    handler = HANDLERS["skill_dir"]
+    png = b"\x89PNG\r\n\x1a\n\xff\xfe"
+    skill = SkillEntity(
+        name="helper",
+        description="d",
+        content="body",
+        files={
+            "scripts/run.py": SkillFile(encoding="text", data="print('hi')"),
+            "logo.png": SkillFile(
+                encoding="base64", data=base64.b64encode(png).decode()
+            ),
+        },
+    )
+    apply_changes(handler.plan_write(tmp_path, [skill], {}))
+
+    assert (tmp_path / "helper" / "scripts" / "run.py").read_text() == "print('hi')"
+    assert (tmp_path / "helper" / "logo.png").read_bytes() == png
+    assert handler.read(tmp_path, {})["helper"] == skill
+
+
+def test_skill_dir_mirrors_removes_stale_files(tmp_path):
     handler = HANDLERS["skill_dir"]
     skill_dir = tmp_path / "helper"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n\nbody\n")
-    (skill_dir / "script.py").write_text("print('hi')")
+    (skill_dir / "old.py").write_text("print('stale')")
 
-    updated = SkillEntity(name="helper", description="d", content="new body")
+    updated = SkillEntity(
+        name="helper",
+        description="d",
+        content="new body",
+        files={"new.py": SkillFile(data="print('new')")},
+    )
     apply_changes(handler.plan_write(tmp_path, [updated], {}))
-    assert (skill_dir / "script.py").read_text() == "print('hi')"
+    assert not (skill_dir / "old.py").exists()
+    assert (skill_dir / "new.py").read_text() == "print('new')"
     assert handler.read(tmp_path, {})["helper"].content == "new body"
+
+
+def test_skill_dir_rejects_traversal_paths(tmp_path):
+    handler = HANDLERS["skill_dir"]
+    skill = SkillEntity(
+        name="evil",
+        content="body",
+        files={
+            "../escape.txt": SkillFile(data="bad"),
+            "/abs.txt": SkillFile(data="bad"),
+        },
+    )
+    apply_changes(handler.plan_write(tmp_path, [skill], {}))
+    assert not (tmp_path.parent / "escape.txt").exists()
+    assert sorted(p.name for p in (tmp_path / "evil").iterdir()) == ["SKILL.md"]
+
+
+def test_skill_dir_plan_remove_deletes_whole_folder(tmp_path):
+    handler = HANDLERS["skill_dir"]
+    skill_dir = tmp_path / "helper"
+    (skill_dir / "scripts").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n\nbody\n")
+    (skill_dir / "scripts" / "run.py").write_text("print('hi')")
+    (skill_dir / ".DS_Store").write_bytes(b"junk")
+
+    changes = handler.plan_remove(tmp_path, ["helper"], {})
+    assert all(c.after is None for c in changes)
+    assert {c.path.name for c in changes} == {"SKILL.md", "run.py", ".DS_Store"}
+    assert all(c.prune_parents_to == tmp_path for c in changes)
+
+
+def test_skill_dir_preserves_executable_bit(tmp_path):
+    """Executable files keep their +x across a write → read round-trip."""
+    import stat
+
+    handler = HANDLERS["skill_dir"]
+    skill = SkillEntity(
+        name="runner",
+        description="d",
+        content="body",
+        files={
+            "run.sh": SkillFile(data="#!/usr/bin/env bash\necho hi\n", executable=True),
+            "notes.txt": SkillFile(data="just text"),
+        },
+    )
+    apply_changes(handler.plan_write(tmp_path, [skill], {}))
+
+    run_sh = tmp_path / "runner" / "run.sh"
+    mode = stat.S_IMODE(os.stat(run_sh).st_mode)
+    assert mode & 0o111, f"expected execute bit, got {oct(mode)}"
+    notes_mode = stat.S_IMODE(os.stat(tmp_path / "runner" / "notes.txt").st_mode)
+    assert not notes_mode & 0o111
+
+    back = handler.read(tmp_path, {})["runner"]
+    assert back.files["run.sh"].executable is True
+    assert back.files["notes.txt"].executable is False
+    assert back == skill
+
+
+def test_skill_dir_strips_executable_when_unset(tmp_path):
+    """Toggling executable off strips the +x on the next sync."""
+    import stat
+
+    handler = HANDLERS["skill_dir"]
+    skill_dir = tmp_path / "helper"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n\nbody\n")
+    (skill_dir / "run.sh").write_text("#!/usr/bin/env bash\necho hi\n")
+    os.chmod(skill_dir / "run.sh", 0o755)
+
+    updated = SkillEntity(
+        name="helper",
+        description="d",
+        content="body",
+        files={"run.sh": SkillFile(data="#!/usr/bin/env bash\necho hi\n")},
+    )
+    changes = handler.plan_write(tmp_path, [updated], {})
+    # Content is unchanged; the only real change is the mode strip.
+    mode_changes = [c for c in changes if c.path.name == "run.sh"]
+    assert mode_changes and mode_changes[0].mode is not None
+    apply_changes(changes)
+
+    mode = stat.S_IMODE(os.stat(skill_dir / "run.sh").st_mode)
+    assert not mode & 0o111, f"expected +x stripped, got {oct(mode)}"
+
+
+def test_skill_dir_executable_change_is_not_noop(tmp_path):
+    """A pure mode change (content identical) is not filtered out as a noop."""
+    handler = HANDLERS["skill_dir"]
+    skill_dir = tmp_path / "helper"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\n---\n\nbody\n")
+    (skill_dir / "run.sh").write_text("echo hi\n")
+
+    updated = SkillEntity(
+        name="helper",
+        description="d",
+        content="body",
+        files={"run.sh": SkillFile(data="echo hi\n", executable=True)},
+    )
+    changes = [c for c in handler.plan_write(tmp_path, [updated], {}) if not c.is_noop]
+    run_change = next(c for c in changes if c.path.name == "run.sh")
+    assert run_change.mode == 0o755
 
 
 # ---------------------------------------------------------------------------

@@ -30,12 +30,27 @@ class McpServer(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
 
 
+class SkillFile(BaseModel):
+    """A supporting file bundled in a skill folder (script, reference, asset).
+
+    UTF-8 files are stored as text; anything else is base64-encoded.
+    `executable` records whether the file should keep its executable bit
+    when synced to disk (e.g. shell/python scripts with a shebang).
+    """
+
+    encoding: str = "text"  # text | base64
+    data: str = ""
+    executable: bool = False
+
+
 class SkillEntity(BaseModel):
-    """Agent Skill — a SKILL.md folder (frontmatter name/description + body)."""
+    """Agent Skill — a SKILL.md folder (frontmatter name/description + body)
+    plus every supporting file in the folder, keyed by relative POSIX path."""
 
     name: str
     description: str = ""
     content: str = ""
+    files: dict[str, SkillFile] = Field(default_factory=dict)
 
 
 class RuleEntity(BaseModel):

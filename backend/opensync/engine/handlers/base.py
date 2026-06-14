@@ -16,10 +16,17 @@ class FileChange:
     path: Path
     before: str | None  # None = file does not exist
     after: str | None  # None = delete file
+    binary: bool = False  # before/after hold base64-encoded bytes
+    # Desired POSIX permission bits (e.g. 0o755) to apply on write; None
+    # means leave the mode alone. Set by handlers that track modes.
+    mode: int | None = None
+    # After a delete, remove now-empty parent directories up to (but not
+    # including) this path. Set by directory-tree handlers (skill_dir).
+    prune_parents_to: Path | None = None
 
     @property
     def is_noop(self) -> bool:
-        return self.before == self.after
+        return self.before == self.after and self.mode is None
 
 
 class FormatHandler(ABC):
@@ -59,4 +66,11 @@ def read_text_or_none(path: Path) -> str | None:
     try:
         return path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
+        return None
+
+
+def read_bytes_or_none(path: Path) -> bytes | None:
+    try:
+        return path.read_bytes()
+    except OSError:
         return None
