@@ -4,376 +4,161 @@
 
 # OpenSync
 
-**Sync MCP servers, skills, workflows, and LLM providers across AI agents and IDEs — from one place.**
+**One registry for your MCP servers, skills, slash commands, subagents, and LLM providers — synced to every AI agent you use.**
 
-Managing the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is painful when you use multiple AI tools. Each editor, CLI, and desktop app keeps its own config file in its own format. Add a server in Cursor, then copy-paste it into Claude Desktop, VS Code, Gemini CLI… and repeat every time something changes.
+Every AI tool keeps its own config in its own format: Claude Code wants `.mcp.json` and `SKILL.md` folders, Codex wants TOML, Copilot wants `.vscode/mcp.json` with a different root key, Cursor and Devin want their own dot-directories. Add a server in one tool and you copy-paste it into five others — and again every time it changes.
 
-OpenSync fixes this. Register your MCP servers once, pick the targets you care about, and sync. You can also manage **agents** (autonomous assistants), **skills** (custom instructions / system prompts), **workflows** (slash-command sequences), and **LLM providers** across tools — all from the same dashboard.
+OpenSync fixes this. Define (or import) everything once in a local registry, pick the tools you care about, preview the exact file diffs, and sync — at the **global** (user) level or per **project**.
 
 ---
 
 ## ✨ Features
 
-- **Centralized MCP registry** — Add, edit, and remove MCP server definitions in a single local database (SQLite).
-- **Centralized agents registry** — Manage autonomous AI agent definitions and configurations.
-- **Centralized skills registry** — Manage custom instructions, system prompts, and rule files across all agents.
-- **Centralized workflows registry** — Manage reusable slash-command workflows and push them to any supported tool.
-- **LLM provider management** — Discover, register, and sync LLM API keys and base URLs across all your AI tools.
-- **One-click sync** — Push servers, agents, skills, workflows, or providers to any combination of supported targets at once.
-- **Auto-discovery** — Detects servers, skills, workflows, and LLM configs already present in your installed tools and imports them.
-- **Project scanner** — Point OpenSync at any project directory and it will automatically discover all agent artifacts (Antigravity, Cursor, Claude Code, Copilot CLI, Gemini CLI, OpenCode, VS Code, Windsurf, and more).
-- **Global & project scopes** — Manage a system-wide set of configurations *and* per-project overrides.
-- **Config backups** — Timestamped backups are created before every write, so nothing is ever lost.
-- **Format translation** — Automatically converts between the different JSON/YAML/Markdown schemas each tool expects.
-- **Project management** — Create named projects, browse directories, and import global configs into any project.
-- **Two-tier Web UI** — A React-based dashboard with a top-level section selector and contextual sub-navigation for MCP Servers, Agents, Skills, Workflows, and LLM Providers.
-- **Unified integration model** — All tool definitions live in a single `integrations/` package powered by Pydantic, making it trivial to add new tools.
+- **Six entity types** — MCP servers, Skills (Agent Skills standard `SKILL.md` folders), Rules/Instructions (synced to CLAUDE.md, AGENTS.md, `.cursor/rules/`, copilot-instructions, …), Commands (slash commands / prompt files / workflows), Subagents, and LLM providers (discovery), each in a central SQLite registry.
+- **Create or import** — Add items in the dashboard, pull them in from the configs of tools you already use, or browse the official MCP Registry.
+- **Stateful sync, not blind overwrite** — OpenSync remembers what it synced where (per-item hashes). Every item shows its live status per tool:
+  `✓ in sync · ↑ outdated (registry changed) · ↓ drifted (changed in the tool) · ⚠ conflict · ○ not synced · ✕ missing`
+- **Diff preview before every write** — Sync is a two-step plan/apply: review unified diffs of every file change, then apply. Drifted items are never silently overwritten — push, pull the tool's version back into the registry, or skip, per item.
+- **Global & project scopes** — System-wide configs (`~/...`) and repo-committed configs (`.mcp.json`, `.cursor/`, `.devin/`, `.github/`, …). Registering a project auto-imports everything already configured in it.
+- **Format translation** — One canonical model per entity; handlers translate to each tool's format: JSON dialects (standard / VS Code / OpenCode), TOML (Codex — comments and formatting preserved via `tomlkit`), markdown with frontmatter variants, `SKILL.md` folders, Gemini's TOML commands, Warp's YAML workflows.
+- **Central, rotated backups** — Every modified file is copied into `~/.opensync/backups/<run>/` before writing; the last 20 runs are kept.
+- **Manifest-driven** — Each tool is one declarative manifest in `backend/integrations/`; discovery, sync, status, and the UI all derive from it. Adding a tool is one file.
 
 ---
 
 ## 🎯 Supported Integrations
 
-OpenSync currently supports **10 AI tools** across editors, desktop apps, and CLIs. Each integration defines which feature types it supports and at which scopes (global, project, or both).
+| Tool | MCP | Skills | Rules | Commands | Subagents | Notes |
+|------|:---:|:------:|:-----:|:--------:|:---------:|-------|
+| **Claude Code** | G + P | G + P | G + P | G + P | G + P | `~/.claude.json` / `.mcp.json`; skills in `~/.claude/skills/`; rules as managed blocks in CLAUDE.md |
+| **Claude Desktop** | G | — | — | — | — | Skills/connectors are app-UI only |
+| **Codex** (CLI + IDE) | G + P | G + P | G + P | G (legacy) | — | `~/.codex/config.toml` (TOML); rules in AGENTS.md; prompts deprecated in favour of skills; cloud Codex reads repo-committed skills/AGENTS.md |
+| **GitHub Copilot (VS Code)** | G + P | G + P | P | P | P | `mcp.json` (root key `servers`), `.github/skills`, `.github/instructions`, `.github/prompts`, `.github/agents` |
+| **GitHub Copilot CLI** | G + P | G + P | — | — | G + P | Project MCP shared with Claude Code via `.mcp.json` |
+| **Cursor** | G + P | G + P | P | G + P | G + P | Rules as `.cursor/rules/*.mdc`; global "User Rules" are settings-UI only |
+| **Devin** (Devin Desktop, ex-Windsurf) | G | G + P | G + P | G + P | P | Writes `.devin/`, still reads `.windsurf/`; `~/.codeium/` paths unchanged |
+| **Gemini CLI** | G + P | G + P | G + P | G + P | G + P | Rules in GEMINI.md; TOML slash commands |
+| **OpenCode** | G + P | G + P | G + P | G + P | G + P | OpenCode-specific MCP entry format; rules in AGENTS.md |
+| **Antigravity** | G + P | G + P | — | G + P | — | Uses the shared `.agents/` dirs |
+| **Warp** | — | G + P | — | G + P | — | YAML workflows; MCP is app-UI only |
 
-### MCP Server Targets
+G = global scope, P = project scope. LLM providers are currently **discovery-only** (formats differ too much across tools to write back safely).
 
-| Category | Target | Scope |
-|----------|--------|-------|
-| **Editors** | Cursor | Global & Project |
-| | VS Code | Global & Project |
-| | Antigravity | Global & Project |
-| | Windsurf | Global & Project |
-| **Desktop** | Claude Desktop | Global |
-| **CLI** | Claude Code | Global & Project |
-| | Gemini CLI | Global & Project |
-| | GitHub Copilot CLI | Global & Project |
-| | OpenCode | Global & Project |
-
-> [!NOTE]
-> Warp does not support MCP servers natively.
-
----
-
-### Agents Targets
-
-Agents are autonomous AI assistants with varying degrees of tool and context access. OpenSync can sync agent configuration files across:
-
-| Target | Scope | Native support |
-|--------|-------|:-:|
-| Claude Code | Global & Project | ✅ |
-| Copilot CLI | Global & Project | ✅ |
-| Cursor | Global & Project | ✅ |
-| Gemini CLI | Global & Project | ✅ |
-| OpenCode | Global & Project | ✅ |
-| VS Code | Project | ✅ |
-
----
-
-### Skills Targets
-
-Skills are custom instructions, system prompts, or rule files injected into AI agents. OpenSync can read and write skills across:
-
-| Target | Scope | Native support |
-|--------|-------|:-:|
-| OpenCode | Global & Project | ✅ |
-| Claude Code | Global & Project | ✅ |
-| Gemini CLI | Global & Project | ✅ |
-| Cursor (rules) | Global & Project | ✅ |
-| Windsurf | Global & Project | ✅ |
-| Antigravity | Global & Project | ✅ |
-| GitHub Copilot CLI | Global & Project | ✅ |
-| Warp | Global & Project | ✅ |
-
----
-
-### Workflows Targets
-
-Workflows are reusable, step-based slash-command sequences. OpenSync injects them natively where supported or as delimited text blocks in existing config files.
-
-| Target | Scope | Native support |
-|--------|-------|:-:|
-| OpenCode | Global & Project | ✅ |
-| Gemini CLI | Global & Project | ✅ |
-| Cursor (commands) | Global & Project | ✅ |
-| Windsurf | Global & Project | ✅ |
-| Antigravity | Global & Project | ✅ |
-| Warp | Global & Project | ✅ |
-
----
-
-### LLM Provider Targets
-
-OpenSync can discover your existing LLM API keys and model configs from installed tools, and sync them back out to any of the supported targets.
-
-| Target | Scope |
-|--------|-------|
-| OpenCode | Global & Project |
-| Claude Code | Global & Project |
-| Gemini CLI | Global & Project |
-| Windsurf | Global & Project |
-| Cursor | Global (read-only discovery) |
-
----
-
-### Full Integration Matrix
-
-A quick reference showing every integration and its supported feature types:
-
-| Integration | Category | MCP | Agents | Skills | Workflows | LLM |
-|-------------|----------|:---:|:------:|:------:|:---------:|:---:|
-| Antigravity | Editor | ✅ | — | ✅ | ✅ | — |
-| Claude Code | CLI | ✅ | ✅ | ✅ | — | ✅ |
-| Claude Desktop | Desktop | ✅ | — | — | — | — |
-| Copilot CLI | CLI | ✅ | ✅ | ✅ | — | — |
-| Cursor | Editor | ✅ | ✅ | ✅ | ✅ | ✅* |
-| Gemini CLI | CLI | ✅ | ✅ | ✅ | ✅ | ✅ |
-| OpenCode | CLI | ✅ | ✅ | ✅ | ✅ | ✅ |
-| VS Code | Editor | ✅ | ✅ | — | — | — |
-| Warp | Desktop | — | — | ✅ | ✅ | — |
-| Windsurf | Editor | ✅ | — | ✅ | ✅ | ✅ |
-
-*\* Read-only discovery*
-
----
-
-## 📋 Requirements
-
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| **Python** | ≥ 3.11 | Backend runtime |
-| **[uv](https://docs.astral.sh/uv/)** | latest | Python package & project manager |
-| **Node.js** | ≥ 18 | Frontend build tooling |
-| **npm** | ≥ 9 | Frontend dependency management |
-
-> [!NOTE]
-> OpenSync currently targets **macOS**. Config paths for targets like Claude Desktop and VS Code extensions use macOS-specific locations (`~/Library/Application Support/…`).
+Rules synced into shared instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, Devin's global_rules.md) live between `<!-- opensync:rule:… -->` markers — everything you wrote in those files by hand is preserved. Since AGENTS.md is read by Codex, Copilot, Cursor, Devin and others, syncing a rule to Codex at project scope effectively covers every AGENTS.md-aware tool. Cross-tool paths like `.agents/skills/` and `.claude/skills/` are scanned during discovery wherever tools read them.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone the repository
+### Run it
+
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/brandonbraner/open_sync.git
+uvx open-sync
+```
+
+That's it — the server starts and the web UI opens in your browser. Until the
+package is published to PyPI, run it straight from the repo instead (needs
+Node 20+ the first time, to build the UI):
+
+```bash
+uvx --from "git+https://github.com/brandon-braner/open_sync#subdirectory=backend" opensync
+```
+
+Or install it as a persistent tool: `uv tool install open-sync`, then `opensync`.
+
+Useful flags: `--port`, `--no-browser`, `--db <path>` (registry defaults to
+`~/.opensync/opensync.db`).
+
+### Develop
+
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node 20+.
+
+```bash
+git clone https://github.com/brandon-braner/open_sync.git
 cd open_sync
-```
-
-### 2. Install backend dependencies
-
-[uv](https://docs.astral.sh/uv/) handles the virtual environment and dependencies automatically from `pyproject.toml`:
-
-```bash
-cd backend
-uv sync
-cd ..
-```
-
-### 3. Install frontend dependencies
-
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 4. Run the app
-
-The included `run.sh` script starts both servers in parallel:
-
-```bash
+(cd backend && uv sync)
+(cd frontend && npm install)
 ./run.sh
 ```
 
-This will start:
+- Backend: http://localhost:8001 (FastAPI; docs at `/docs`)
+- Frontend: http://localhost:5173 (Vite dev server with hot reload)
 
-| Service | URL |
-|---------|-----|
-| Backend (FastAPI) | `http://localhost:8001` |
-| Frontend (Vite + React) | `http://localhost:5173` |
+An existing v1 `opensync.db` is migrated automatically on first start (a copy is kept at `opensync.db.pre-v2`).
 
-Open **<http://localhost:5173>** in your browser.
+### Typical flow
 
-Press `Ctrl+C` to stop both servers.
-
-#### Running the backend only
-
-If you only need the API (no UI):
-
-```bash
-cd backend
-uv run main.py
-```
-
-The API is available at `http://localhost:8001` with interactive docs at `http://localhost:8001/docs`.
-
-### Running backend tests
-
-```bash
-cd backend
-python3 -m unittest discover -s tests -v
-```
-
----
-
-## 🏗️ Architecture
-
-```
-open_sync/
-├── backend/                        # FastAPI + SQLite
-│   ├── main.py                     # Uvicorn entrypoint
-│   ├── api.py                      # REST API routes
-│   ├── models.py                   # Pydantic request/response models
-│   ├── integrations/               # Unified integration definitions
-│   │   ├── __init__.py             # ALL_INTEGRATIONS registry
-│   │   ├── base.py                 # Integration & ScopedConfig Pydantic models
-│   │   ├── antigravity.py          # Antigravity (Google DeepMind)
-│   │   ├── claude_code.py          # Claude Code (Anthropic)
-│   │   ├── claude_desktop.py       # Claude Desktop (Anthropic)
-│   │   ├── copilot_cli.py          # GitHub Copilot CLI
-│   │   ├── cursor.py               # Cursor
-│   │   ├── gemini_cli.py           # Gemini CLI (Google)
-│   │   ├── opencode.py             # OpenCode
-│   │   ├── vscode.py               # VS Code (Microsoft)
-│   │   ├── warp.py                 # Warp Terminal
-│   │   └── windsurf.py             # Windsurf (Codeium)
-│   ├── unified_targets.py          # Accessor functions over ALL_INTEGRATIONS
-│   ├── config_targets.py           # MCP target definitions (paths, formats, scopes)
-│   ├── config_manager.py           # Read / write / sync logic for MCP configs
-│   ├── server_registry.py          # CRUD for the MCP server registry
-│   ├── skill_registry.py           # CRUD for the skills registry
-│   ├── workflow_registry.py        # CRUD for the workflows registry
-│   ├── llm_provider_registry.py    # CRUD for the LLM providers registry
-│   ├── project_registry.py         # CRUD for named projects
-│   ├── skill_discovery.py          # Discover & write skills from/to AI tools
-│   ├── workflow_discovery.py       # Discover & write workflows from/to AI tools
-│   ├── llm_provider_discovery.py   # Discover & write LLM providers from/to AI tools
-│   ├── project_importer.py         # Scan a project dir for agent artifacts
-│   ├── mcp_registry_client.py      # Official MCP registry proxy
-│   ├── database.py                 # SQLite schema, migrations, JSON import
-│   └── pyproject.toml              # Python dependencies
-├── frontend/                       # Vite + React 19
-│   ├── src/
-│   │   ├── App.jsx                 # Main application component (two-tier nav)
-│   │   ├── api.js                  # API client
-│   │   ├── colors.js               # Integration color palette
-│   │   ├── main.jsx                # React entry point
-│   │   └── index.css               # Styles
-│   └── package.json                # Node dependencies
-├── run.sh                          # Dev launcher (backend + frontend)
-└── opensync.db                     # SQLite database (auto-created on first run)
-```
-
-### Adding a new integration
-
-All tool definitions live in the `backend/integrations/` package. To add a new AI tool:
-
-1. Create `backend/integrations/{tool_name}.py`
-2. Define an `Integration` instance with its supported features and config paths
-3. Import it in `backend/integrations/__init__.py` and add it to `ALL_INTEGRATIONS`
-
-The `unified_targets.py` module automatically derives flat target lists from the integration registry — no need to update multiple files.
-
----
-
-## 📡 API Overview
-
-All endpoints are under `/api`. Full interactive documentation is auto-generated at `/docs` when the backend is running.
-
-### MCP Servers
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/servers` | List all MCP servers (discovered + registry) |
-| `GET` | `/api/registry` | List servers in the OpenSync registry |
-| `POST` | `/api/registry` | Add a new server to the registry |
-| `PUT` | `/api/registry/{id}` | Update a server by ID |
-| `DELETE` | `/api/registry/{id}` | Remove a server by ID |
-| `POST` | `/api/registry/import` | Import a global server into a project |
-| `GET` | `/api/targets` | List sync targets and their status |
-| `POST` | `/api/sync` | Sync servers to selected targets |
-| `DELETE` | `/api/servers/{name}` | Remove a server from one or more targets |
-
-### Agents
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/registry/agents` | List agents in the registry |
-| `POST` | `/api/registry/agents` | Add a new agent |
-| `DELETE` | `/api/registry/agents/{id}` | Remove an agent |
-| `POST` | `/api/registry/agents/import` | Copy an agent from global to a project |
-| `GET` | `/api/registry/agents/discover` | Discover agents from installed AI tools |
-| `GET` | `/api/registry/agents/targets` | List agent push targets |
-| `POST` | `/api/registry/agents/sync` | Push an agent to one or more targets |
-
-### Skills
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/registry/skills` | List skills in the registry |
-| `POST` | `/api/registry/skills` | Add a new skill |
-| `DELETE` | `/api/registry/skills/{id}` | Remove a skill |
-| `POST` | `/api/registry/skills/import` | Copy a skill from global to a project |
-| `GET` | `/api/registry/skills/discover` | Discover skills from installed AI tools |
-| `GET` | `/api/registry/skills/targets` | List skill push targets |
-| `POST` | `/api/registry/skills/sync` | Push a skill to one or more targets |
-
-### Workflows
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/registry/workflows` | List workflows in the registry |
-| `POST` | `/api/registry/workflows` | Add a new workflow |
-| `DELETE` | `/api/registry/workflows/{id}` | Remove a workflow |
-| `POST` | `/api/registry/workflows/import` | Copy a workflow from global to a project |
-| `GET` | `/api/registry/workflows/discover` | Discover workflows from installed AI tools |
-| `GET` | `/api/registry/workflows/targets` | List workflow push targets |
-| `POST` | `/api/registry/workflows/sync` | Push a workflow to one or more targets |
-
-### LLM Providers
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/registry/llm-providers` | List LLM providers in the registry |
-| `POST` | `/api/registry/llm-providers` | Add a new LLM provider |
-| `DELETE` | `/api/registry/llm-providers/{id}` | Remove an LLM provider |
-| `POST` | `/api/registry/llm-providers/import` | Copy a provider from global to a project |
-| `GET` | `/api/registry/llm-providers/discover` | Discover providers from installed AI tools |
-| `GET` | `/api/registry/llm-providers/targets` | List LLM provider push targets |
-| `POST` | `/api/registry/llm-providers/sync` | Push a provider to one or more targets |
+1. **Import** — open a section (e.g. MCP Servers) → *Import from tools* tab → everything found in your installed tools is listed with source badges → import.
+2. **Edit** — change the item in OpenSync; its status flips to `↑ outdated` for every tool that has the old version.
+3. **Sync** — select items + target tools → *Preview sync* → review the diffs → *Apply*.
+4. **Reconcile drift** — if you edit a config by hand (or a tool does), the cell shows `↓ drifted`; click it to see the diff and either push the registry version or pull the tool's version back.
 
 ### Projects
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/projects` | List all projects |
-| `POST` | `/api/projects` | Create a new project (auto-imports existing configs) |
-| `DELETE` | `/api/projects/{name}` | Remove a project |
-| `GET` | `/api/browse` | List subdirectories for the directory browser |
-| `GET` | `/api/pick-directory` | Open native macOS folder picker |
-
-### Project Importer
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/registry/import-from-project/scan` | Scan a project dir for agent artifacts |
-| `POST` | `/api/registry/import-from-project/commit` | Save scanned artifacts into the registry |
-
-### Official MCP Registry
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/mcp-registry/search` | Search the official MCP Registry |
-| `POST` | `/api/mcp-registry/import` | Import a server from the official registry |
+Register a project directory under **Projects**, and OpenSync manages that repo's committed configs (`.mcp.json`, `.cursor/`, `.claude/`, `.devin/`, `.github/`, …) the same way — anything already configured is imported on registration. Switch between Global and a project with the scope bar at the top.
 
 ---
 
-## 🗄️ Data Storage
+## 🏗 Architecture
 
-OpenSync stores all registry data in a local **SQLite** database (`opensync.db`) in the project root. The database is auto-created on first run and contains tables for MCP servers, skills, workflows, LLM providers, and projects — all scoped to either global or a named project.
+> **Full architecture, component model, data flows, and the drift state
+> machine:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> **Engineering standards for contributors and AI agents:**
+> [`AGENTS.md`](AGENTS.md) · [`CLAUDE.md`](CLAUDE.md).
+> **Adding a tool integration:** [`docs/CONTRIBUTING_INTEGRATIONS.md`](docs/CONTRIBUTING_INTEGRATIONS.md).
+
+```
+backend/
+├── opensync/
+│   ├── integrations/     # one declarative manifest per tool (single source of truth)
+│   │   └── base.py       #   Integration / EntityTarget models
+│   ├── engine/
+│   │   ├── engine.py     # discover / import / status / plan / apply / pull
+│   │   ├── handlers/     # format handlers: json_mcp, toml_mcp, markdown_dir,
+│   │   │                 #   skill_dir, toml_command, yaml_workflow, llm_json
+│   │   ├── paths.py      # ~ / project-relative / per-OS path resolution
+│   │   ├── hash.py       # per-item canonical hashing (drift detection)
+│   │   └── backup.py     # central rotated backups
+│   ├── db/               # SQLite schema v2 + v1 migration
+│   ├── store.py          # generic CRUD (entities, projects, sync_state)
+│   └── routers/          # /api/integrations, /api/{kind}, /api/sync, ...
+└── tests/                # manifest invariants, handler golden tests,
+                          #   engine state machine, migration, API flows
+frontend/src/
+├── entityKinds.js        # per-kind UI config (label, icon, form)
+├── pages/EntityPage.jsx  # generic list + sync-status matrix + import tab
+└── components/           # DiffModal, StatusPill, ScopeBar, Sidebar, forms
+```
+
+Key design rules:
+
+- **Manifests drive everything.** No per-tool paths or formats exist outside `backend/opensync/integrations/`. The frontend gets all tool metadata from `GET /api/integrations`.
+- **Handlers plan, the engine writes.** Handlers return `FileChange(path, before, after)` objects; the engine diffs, backs up, and applies them — that's what makes dry-run previews and backups universal.
+- **Per-item hashing.** Drift is detected on the parsed item, not file bytes, so tools that rewrite their config files (Claude Code does constantly) don't cause false drift.
+
+### Adding a new tool
+
+Create one manifest file in `backend/opensync/integrations/` and add it to
+`ALL_INTEGRATIONS` — see [docs/CONTRIBUTING_INTEGRATIONS.md](docs/CONTRIBUTING_INTEGRATIONS.md).
+The manifest tests (`tests/test_manifests.py`) validate it automatically. Full
+component map and design rules: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
-## 📄 License
+## 🧪 Tests
 
-This project is open source. See the repository for license details.
+```bash
+make test            # backend (pytest)
+cd backend && uv run --group dev pytest -v
+```
+
+---
+
+## ⚠️ Notes & limitations
+
+- Default paths target **macOS**; Linux/Windows overrides exist per-target via `os_paths` (Claude Desktop and VS Code are filled in, others welcome).
+- LLM provider API keys are stored in plain text in the local SQLite db, exactly as they appear in tool configs. Treat `opensync.db` accordingly.
+- Avoid syncing to `~/.claude.json` while Claude Code is running — it rewrites that file with session state.
+- Codex only honours a project-level `.codex/config.toml` once the project is trusted in Codex.

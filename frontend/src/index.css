@@ -1379,6 +1379,78 @@ header p {
   justify-content: center;
 }
 
+/* ---- Skill bundled files ---- */
+
+.skill-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.skill-file-list li {
+  padding: 0.15rem 0;
+}
+
+.skill-file-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.skill-file-picker .btn {
+  cursor: pointer;
+}
+
+.skill-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.skill-file-row code {
+  word-break: break-all;
+}
+
+.skill-exec-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.skill-exec-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.skill-file-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.skill-file-remove:hover {
+  color: var(--danger, #c33);
+}
+
 /* ---- Markdown Editor ---- */
 
 .md-label-hint {
@@ -1624,4 +1696,642 @@ header p {
   background: rgba(255,255,255,.06);
   border-radius: 2px;
   padding: 0 3px;
+}
+/* ============================================================ */
+/* ==== OpenSync v2 shell: sidebar + scope bar + entity page === */
+/* ============================================================ */
+
+.app-shell {
+  max-width: none;
+  display: flex;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border, #2d333b);
+  padding: 1.5rem 0.75rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 1.25rem 0.5rem 0.4rem;
+}
+
+.sidebar-section:first-child { margin-top: 0; }
+
+.sidebar-link {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 2px;
+}
+
+.sidebar-link:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary, #e6edf3); }
+.sidebar-link.active { background: rgba(88, 166, 255, 0.12); color: var(--accent, #58a6ff); }
+.sidebar-icon { margin-right: 0.4rem; }
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 2rem 3rem;
+}
+
+.main-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.main-header h1 { font-size: 1.6rem; }
+.main-header p { color: var(--text-secondary); font-size: 0.85rem; }
+
+/* Scope bar */
+.scope-bar { display: flex; align-items: center; gap: 0.6rem; }
+.scope-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.scope-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.scope-btn.active { background: rgba(88, 166, 255, 0.15); color: var(--accent, #58a6ff); }
+
+/* Entity page */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.page-header h2 { margin-right: auto; }
+
+.page-tabs { display: inline-flex; gap: 0.25rem; }
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tab-btn.active {
+  border-color: var(--border, #2d333b);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #e6edf3);
+}
+
+.hint { color: var(--text-secondary); font-size: 0.85rem; margin: 0.75rem 0; }
+
+.editor-panel {
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+.editor-panel h3 { margin-bottom: 0.9rem; }
+
+/* Sync toolbar */
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+.sync-toolbar-label { font-size: 0.82rem; color: var(--text-secondary); }
+.target-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border, #2d333b);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Sync matrix */
+.matrix-wrap { overflow-x: auto; }
+.sync-matrix { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.sync-matrix th, .sync-matrix td {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+  text-align: left;
+  white-space: nowrap;
+}
+.sync-matrix th {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.sync-matrix .col-pill { text-align: center; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.sync-matrix .col-summary {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+}
+.sync-matrix .col-name { font-weight: 600; }
+.sync-matrix .col-actions { text-align: right; }
+.col-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+/* Status pills */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pill-clickable { cursor: pointer; }
+.pill-clickable:hover { filter: brightness(1.35); }
+.pill-insync { background: rgba(63, 185, 80, 0.18); color: #3fb950; }
+.pill-outdated { background: rgba(88, 166, 255, 0.18); color: #58a6ff; }
+.pill-drifted { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+.pill-conflict { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+.pill-notsynced { background: rgba(139, 148, 158, 0.12); color: #8b949e; }
+.pill-missing { background: rgba(248, 81, 73, 0.12); color: #f85149; }
+.pill-unsupported { background: transparent; color: #484f58; }
+
+/* Modal + diff */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+.modal {
+  background: var(--bg-secondary, #161b22);
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 12px;
+  padding: 1.25rem;
+  max-width: 760px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.9rem;
+}
+.diff-modal { max-width: 860px; }
+
+.plan-warnings { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.plan-warning {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  background: rgba(210, 153, 34, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+}
+.plan-warning.warning-conflict { border-color: rgba(248, 81, 73, 0.4); background: rgba(248, 81, 73, 0.08); }
+.plan-warning-actions { display: inline-flex; gap: 0.4rem; flex-shrink: 0; }
+
+.plan-change { margin-bottom: 1.1rem; }
+.plan-change-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+.plan-change-header code { color: var(--text-secondary); font-size: 0.78rem; }
+
+.diff-view {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border, #2d333b);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+  white-space: pre;
+}
+.diff-add { color: #3fb950; background: rgba(63, 185, 80, 0.08); }
+.diff-del { color: #f85149; background: rgba(248, 81, 73, 0.08); }
+.diff-hunk { color: #58a6ff; }
+
+/* Import tab */
+.import-toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+.import-panel .import-list { max-height: none; }
+.import-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+}
+.import-item label { display: flex; align-items: center; gap: 0.55rem; cursor: pointer; min-width: 0; }
+.import-desc { color: var(--text-secondary); }
+.badge-warn { background: rgba(210, 153, 34, 0.25); margin-left: 0.5rem; }
+
+/* Projects page */
+.project-list { list-style: none; margin-top: 1.25rem; }
+.project-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid var(--border, #2d333b);
+}
+.project-path {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+@media (max-width: 860px) {
+  .app-shell { flex-direction: column; }
+  .sidebar { width: auto; height: auto; position: static; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .sidebar-section { display: none; }
+}
+
+/* ---- Skill File Editor: two-column IDE layout ---- */
+
+.skill-editor {
+  display: flex;
+  height: 420px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.skill-editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.skill-editor-tree-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.skill-editor-tree-title {
+  flex-basis: 100%;
+  margin-bottom: 0.1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.skill-editor-tree-header .btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.skill-editor-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem 0.3rem;
+}
+
+/* File tree */
+.tree-root,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  padding-left: 0.85rem;
+  border-left: 1px solid var(--border);
+  margin-left: 0.55rem;
+}
+
+.tree-folder-row,
+.tree-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tree-folder-row:hover,
+.tree-file-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.tree-file-row.selected {
+  background: rgba(88, 166, 255, 0.14);
+  color: var(--accent-hover);
+}
+
+.tree-caret {
+  width: 0.8rem;
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.tree-folder-icon,
+.tree-file-icon {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+}
+
+.tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.76rem;
+}
+
+.tree-file-count {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  min-width: 1.1rem;
+  text-align: center;
+}
+
+.tree-actions {
+  display: none;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.tree-file-row:hover .tree-actions {
+  display: flex;
+}
+
+.tree-act {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.tree-act:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tree-act-del:hover {
+  color: var(--danger);
+}
+
+/* Right-hand editor pane */
+.skill-editor-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.skill-editor-no-selection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.skill-editor-file-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.skill-editor-file-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.skill-editor-file-path {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-editor-file-spacer {
+  flex: 1;
+}
+
+.skill-editor-file-header .btn-sm {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.skill-editor-binary-hint {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* ---- Monaco Editor ---- */
+
+.monaco-container {
+  width: 100%;
+  border: none;
+}
+
+.monaco-container .monaco-editor,
+.monaco-container .monaco-editor .overflow-guard {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+
+.monaco-container .monaco-editor .margin,
+.monaco-container .monaco-editor .monaco-editor-background {
+  background: var(--bg-primary) !important;
+}
+
+/* Inside the skill editor the code area fills the remaining height
+   (overrides MonacoEditor's inline fallback height). */
+.skill-editor-file-panel .monaco-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.skill-editor-file-panel .monaco-container {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+/* LSP status badge overlaid on the code editor */
+.monaco-wrap {
+  position: relative;
+}
+
+.lsp-status {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.lsp-status.connected {
+  color: var(--success);
+}
+
+.lsp-status .lsp-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---- Skill File Editor: inline name input + improved empty state ---- */
+
+.tree-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.35rem;
+  animation: fadeIn 0.1s ease;
+}
+
+.tree-inline-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.tree-inline-input::placeholder {
+  color: var(--text-muted);
+}
+
+.tree-icon-inline {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+/* Improved empty state for the file tree */
+.skill-editor-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.skill-editor-empty p {
+  margin-bottom: 0.5rem;
+}
+
+.skill-editor-empty-hint {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin-top: 0.75rem;
 }

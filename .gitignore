@@ -6,6 +6,7 @@ backend/uv.lock
 
 # Database (created on first run via init_db)
 opensync.db
+opensync.db.pre-v2
 opensync.db-wal
 opensync.db-shm
 .pytest_cache/
@@ -40,3 +41,7 @@ output/
 # OS
 .DS_Store
 
+
+# Build artifacts
+backend/dist/
+backend/opensync/static/

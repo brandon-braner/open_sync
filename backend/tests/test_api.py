@@ -1,70 +1,224 @@
-from __future__ import annotations
+"""API surface tests via TestClient (generic entities router + sync flow)."""
 
-from pathlib import Path
-from unittest.mock import patch
+import json
 
-from fastapi import HTTPException
-
-from _helpers import BackendTestCase
-import api
-import project_registry
-import server_registry
-from config_targets import Scope
-from models import AddServerRequest, ImportServerRequest, McpServer, SyncRequest
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
-class ApiTests(BackendTestCase):
-    def test_parse_scope_validation(self):
-        self.assertEqual(Scope.GLOBAL, api._parse_scope("global"))
-        with self.assertRaises(HTTPException):
-            api._parse_scope("bad")
+@pytest.fixture()
+def client(env):
+    from opensync.routers import api_router
 
-    def test_resolve_project_dir_validation(self):
-        with self.assertRaises(HTTPException):
-            api._resolve_project_dir(None, Scope.PROJECT)
-        with self.assertRaises(HTTPException):
-            api._resolve_project_dir(str(self.tmp_path / "missing"), Scope.PROJECT)
+    app = FastAPI()
+    app.include_router(api_router)
+    return TestClient(app)
 
-        project_dir = self.tmp_path / "proj"
-        project_dir.mkdir()
-        resolved = api._resolve_project_dir(str(project_dir), Scope.PROJECT)
-        self.assertEqual(str(project_dir.resolve()), resolved)
-        self.assertIsNone(api._resolve_project_dir(None, Scope.GLOBAL))
 
-    def test_registry_crud_and_import(self):
-        created = api.add_registry_server(
-            AddServerRequest(name="demo", command="uvx", args=["pkg"])
-        )
-        listed = api.list_registry_servers()
-        self.assertEqual(1, len(listed))
-        self.assertEqual(created.id, listed[0].id)
+def test_integrations_endpoint(client):
+    data = client.get("/api/integrations").json()
+    ids = {i["id"] for i in data}
+    assert {"claude_code", "codex", "devin", "cursor"} <= ids
+    codex = next(i for i in data if i["id"] == "codex")
+    assert codex["targets"]["mcp"]["global"]["handler"] == "toml_mcp"
 
-        project_dir = self.tmp_path / "project"
-        project_dir.mkdir()
-        project_registry.add_project("alpha", str(project_dir))
-        imported = api.import_from_global(
-            ImportServerRequest(server_name="demo", project_name="alpha")
-        )
-        self.assertNotEqual(created.id, imported.id)
 
-        message = api.remove_registry_server(created.id)
-        self.assertIn("removed from registry", message["message"])
+def test_entity_crud(client):
+    created = client.post(
+        "/api/mcp",
+        json={"name": "ctx", "command": "npx", "args": ["-y", "ctx"], "scope": "global"},
+    )
+    assert created.status_code == 200, created.text
+    entity = created.json()
 
-    def test_list_servers_merges_discovered_and_registry(self):
-        reg = server_registry.add_server(McpServer(name="registry", command="uvx", sources=[]))
-        discovered = {"found": McpServer(name="found", command="npx", sources=["cursor"])}
+    assert client.post(
+        "/api/mcp", json={"name": "ctx", "command": "x", "scope": "global"}
+    ).status_code == 409
 
-        with patch("api.discover_all_servers", return_value=discovered):
-            servers = api.list_servers(scope="global", project_path=None)
+    listed = client.get("/api/mcp").json()
+    assert len(listed) == 1
 
-        names = sorted(s.name for s in servers)
-        self.assertEqual(["found", "registry"], names)
-        merged_reg = next(s for s in servers if s.name == "registry")
-        self.assertEqual(reg.id, merged_reg.id)
+    updated = client.put(
+        f"/api/mcp/{entity['id']}", json={"name": "ctx", "command": "uvx"}
+    ).json()
+    assert updated["data"]["command"] == "uvx"
 
-    def test_sync_reports_unknown_target(self):
-        request = SyncRequest(server_names=["missing"], target_names=["unknown"])
-        response = api.do_sync(request)
-        self.assertEqual(1, len(response.results))
-        self.assertFalse(response.results[0].success)
-        self.assertEqual("unknown", response.results[0].target)
+    assert client.delete(f"/api/mcp/{entity['id']}").status_code == 200
+    assert client.get("/api/mcp").json() == []
+
+
+def test_unknown_kind_404(client):
+    assert client.get("/api/widgets").status_code == 404
+
+
+def test_project_scope_requires_project_id(client):
+    resp = client.post("/api/skills", json={"name": "s", "scope": "project"})
+    assert resp.status_code == 400
+
+
+def test_list_project_scope_requires_project_id(client):
+    # GET listing must require project_id for project scope, same as create.
+    resp = client.get("/api/mcp", params={"scope": "project"})
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# /api/sync/* error handling
+# ---------------------------------------------------------------------------
+
+
+def test_sync_plan_invalid_kind_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "unknown-kind", "entity_ids": ["x"], "integrations": ["y"]},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_plan_empty_entity_ids_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "mcp", "entity_ids": [], "integrations": ["claude_code"]},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_plan_empty_integrations_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "mcp", "entity_ids": ["x"], "integrations": []},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_apply_unknown_plan_409(client):
+    # Applying a non-existent / expired plan returns 409; FastAPI serialises
+    # HTTPException detail as {"detail": "..."}.
+    resp = client.post("/api/sync/apply", json={"plan_id": "does-not-exist"})
+    assert resp.status_code == 409
+    body = resp.json()
+    assert "detail" in body and "expired" in body["detail"].lower()
+
+
+def test_sync_pull_unknown_entity_integration_404(client):
+    # PullRequest is {entity_id, integration} — no `kind` field.
+    resp = client.post(
+        "/api/sync/pull",
+        json={"entity_id": "nope", "integration": "claude_code"},
+    )
+    assert resp.status_code == 404
+
+
+def test_discover_import_status_sync_flow(client, home):
+    cfg = home / ".cursor" / "mcp.json"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text(json.dumps({"mcpServers": {"ctx": {"command": "npx"}}}))
+
+    found = client.get("/api/mcp/discover").json()
+    assert found[0]["name"] == "ctx" and "cursor" in found[0]["sources"]
+
+    imported = client.post(
+        "/api/mcp/import",
+        json={"items": [{"name": "ctx", "integration": "cursor", "scope": "global"}]},
+    ).json()["imported"]
+    entity_id = imported[0]["id"]
+
+    statuses = client.get("/api/mcp/status").json()
+    cell = next(
+        c for c in statuses[0]["cells"] if c["integration"] == "claude_code"
+    )
+    assert cell["status"] == "not_synced"
+
+    plan = client.post(
+        "/api/sync/plan",
+        json={"kind": "mcp", "entity_ids": [entity_id], "integrations": ["claude_code"]},
+    ).json()
+    assert plan["changes"] and "+" in plan["changes"][0]["diff"]
+
+    result = client.post("/api/sync/apply", json={"plan_id": plan["plan_id"]}).json()
+    assert result["success"]
+    assert (home / ".claude.json").exists()
+
+    statuses = client.get("/api/mcp/status").json()
+    cell = next(
+        c for c in statuses[0]["cells"] if c["integration"] == "claude_code"
+    )
+    assert cell["status"] == "in_sync"
+
+
+def test_projects_auto_import(client, env):
+    proj_dir = env / "myproj"
+    (proj_dir / ".cursor").mkdir(parents=True)
+    (proj_dir / ".cursor" / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"db": {"command": "uvx", "args": ["db-mcp"]}}})
+    )
+
+    resp = client.post(
+        "/api/projects", json={"name": "myproj", "path": str(proj_dir)}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["imported"].get("mcp") == ["db"]
+
+    project_id = body["project"]["id"]
+    entities = client.get(
+        "/api/mcp", params={"scope": "project", "project_id": project_id}
+    ).json()
+    assert entities[0]["name"] == "db"
+
+
+def test_create_skill_with_files_syncs_to_disk(client, home):
+    """A skill created in-app with bundled files + executable script lands
+    on disk with content and mode intact."""
+    import base64
+    import os
+    import stat
+
+    png = b"\x89PNG\r\n\x1a\n\x00\x01\x02"
+    resp = client.post(
+        "/api/skills",
+        json={
+            "name": "pdf",
+            "description": "PDFs",
+            "content": "Use the script.",
+            "scope": "global",
+            "files": {
+                "scripts/run.sh": {
+                    "encoding": "text",
+                    "data": "#!/usr/bin/env bash\necho hi\n",
+                    "executable": True,
+                },
+                "logo.png": {
+                    "encoding": "base64",
+                    "data": base64.b64encode(png).decode(),
+                },
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    entity = resp.json()
+    assert entity["data"]["files"]["scripts/run.sh"]["executable"] is True
+
+    plan = client.post(
+        "/api/sync/plan",
+        json={
+            "kind": "skill",
+            "entity_ids": [entity["id"]],
+            "integrations": ["claude_code"],
+        },
+    ).json()
+    assert plan["changes"]
+    assert client.post(
+        "/api/sync/apply", json={"plan_id": plan["plan_id"]}
+    ).json()["success"]
+
+    skill_dir = home / ".claude" / "skills" / "pdf"
+    run_sh = skill_dir / "scripts" / "run.sh"
+    assert run_sh.read_text() == "#!/usr/bin/env bash\necho hi\n"
+    assert stat.S_IMODE(os.stat(run_sh).st_mode) & 0o111, "execute bit not preserved"
+    assert (skill_dir / "logo.png").read_bytes() == png
+
+    statuses = client.get("/api/skills/status").json()
+    cell = next(c for c in statuses[0]["cells"] if c["integration"] == "claude_code")
+    assert cell["status"] == "in_sync"

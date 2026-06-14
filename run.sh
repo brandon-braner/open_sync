@@ -8,7 +8,7 @@ echo "🔄 OpenSync – starting dev servers..."
 
 # Backend (FastAPI via uv – run from backend/ where pyproject.toml lives)
 echo "→ Starting backend on http://localhost:8001"
-(cd "$DIR/backend" && uv run main.py) &
+(cd "$DIR/backend" && uv run python -m opensync.main) &
 BACKEND_PID=$!
 
 # Frontend (Vite)
