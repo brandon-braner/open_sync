@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import sqlite3
 import uuid
@@ -18,6 +19,22 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 _V1_TABLES = ("servers", "skills", "workflows", "llm_providers", "agents")
+
+# SQLite cannot parameterize DDL identifiers (table/column names), so dynamic
+# DROP statements interpolate the name. This strict pattern guards that
+# interpolation — only plain identifiers are ever executed.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _drop_table_if_exists(conn: sqlite3.Connection, table: str) -> None:
+    """Drop a table by name, refusing anything that isn't a plain identifier.
+
+    Identifiers can't be bound as parameters in SQLite DDL, so the name is
+    validated before interpolation as defense in depth against injection.
+    """
+    if not _IDENTIFIER_RE.match(table):
+        raise ValueError(f"Refusing to drop table with unsafe name: {table!r}")
+    conn.execute(f"DROP TABLE IF EXISTS {table}")
 
 
 def _now() -> str:
@@ -143,6 +160,6 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
         )
 
     for table in _V1_TABLES + ("projects",):
-        conn.execute(f"DROP TABLE IF EXISTS {table}")
+        _drop_table_if_exists(conn, table)
 
     logger.info("Migrated v1 database to schema v2")

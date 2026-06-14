@@ -74,6 +74,10 @@ def list_entities(
     scope: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
 ):
+    if scope == "project" and not project_id:
+        raise HTTPException(
+            status_code=400, detail="project_id is required for project scope"
+        )
     return store.list_entities(_kind(url_kind), scope, project_id)
 
 

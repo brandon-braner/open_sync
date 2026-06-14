@@ -1,6 +1,7 @@
 """Engine flows: discover → import → status state machine → plan/apply → pull."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -60,7 +61,7 @@ def test_import_creates_entity_and_sync_state(env, home):
 
 def test_discover_reads_fallback_paths(env, project):
     proj = project.path
-    legacy = engine.paths.Path(proj) / ".windsurf" / "skills" / "old-skill"
+    legacy = Path(proj) / ".windsurf" / "skills" / "old-skill"
     legacy.mkdir(parents=True)
     (legacy / "SKILL.md").write_text("---\nname: old-skill\n---\n\nlegacy body\n")
 

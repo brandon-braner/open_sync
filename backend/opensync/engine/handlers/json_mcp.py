@@ -23,6 +23,15 @@ from opensync.engine.handlers.base import FileChange, FormatHandler, read_text_o
 from opensync.models import McpServer
 
 
+class CorruptConfigError(Exception):
+    """The config file exists but can't be safely parsed or merged.
+
+    Distinct from a missing/empty file (a legitimate "create" state): a corrupt
+    file must not be silently treated as empty, or `plan_write` would rewrite it
+    from an empty dict and drop every other key the user had.
+    """
+
+
 def _parse_entry(name: str, entry: dict, style: str) -> McpServer:
     if style == "opencode":
         cmd_list = entry.get("command") or []
@@ -90,17 +99,30 @@ class JsonMcpHandler(FormatHandler):
     kinds = frozenset({"mcp"})
 
     def _load(self, root: Path) -> dict:
+        """Parse the config file. Missing/empty → `{}` (a valid create state).
+
+        Raises `CorruptConfigError` if the file exists but isn't valid JSON or
+        isn't a JSON object — callers that would clobber it (`_plan`) must not
+        proceed in that case; callers that only read (`read`) swallow it.
+        """
         text = read_text_or_none(root)
         if not text or not text.strip():
             return {}
         try:
             data = json.loads(text)
-        except json.JSONDecodeError:
-            return {}
-        return data if isinstance(data, dict) else {}
+        except json.JSONDecodeError as exc:
+            raise CorruptConfigError(f"{root} is not valid JSON: {exc}") from exc
+        if not isinstance(data, dict):
+            raise CorruptConfigError(f"{root} is not a JSON object")
+        return data
 
     def read(self, root: Path, opts: dict) -> dict[str, BaseModel]:
-        data = self._load(root)
+        # `read` never raises (invariant): a corrupt file is treated as if the
+        # root_key section were absent, so discovery/status stay resilient.
+        try:
+            data = self._load(root)
+        except CorruptConfigError:
+            return {}
         entries = data.get(opts.get("root_key", "mcpServers"), {})
         if not isinstance(entries, dict):
             return {}
@@ -113,6 +135,10 @@ class JsonMcpHandler(FormatHandler):
 
     def _plan(self, root: Path, mutate, opts: dict) -> list[FileChange]:
         before = read_text_or_none(root)
+        # On a corrupt file this raises CorruptConfigError, which propagates out
+        # of plan_write/plan_remove. The engine wraps handler calls in
+        # try/except and surfaces them as an error warning + skips the write,
+        # so a momentarily-corrupt config is never overwritten from scratch.
         data = self._load(root)
         root_key = opts.get("root_key", "mcpServers")
         entries = data.get(root_key)

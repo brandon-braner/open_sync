@@ -17,7 +17,7 @@ OpenSync fixes this. Define (or import) everything once in a local registry, pic
 - **Six entity types** — MCP servers, Skills (Agent Skills standard `SKILL.md` folders), Rules/Instructions (synced to CLAUDE.md, AGENTS.md, `.cursor/rules/`, copilot-instructions, …), Commands (slash commands / prompt files / workflows), Subagents, and LLM providers (discovery), each in a central SQLite registry.
 - **Create or import** — Add items in the dashboard, pull them in from the configs of tools you already use, or browse the official MCP Registry.
 - **Stateful sync, not blind overwrite** — OpenSync remembers what it synced where (per-item hashes). Every item shows its live status per tool:
-  `✓ in sync · ↑ outdated (registry changed) · ↓ drifted (changed in the tool) · ⚠ conflict · · not synced · ✕ missing`
+  `✓ in sync · ↑ outdated (registry changed) · ↓ drifted (changed in the tool) · ⚠ conflict · ○ not synced · ✕ missing`
 - **Diff preview before every write** — Sync is a two-step plan/apply: review unified diffs of every file change, then apply. Drifted items are never silently overwritten — push, pull the tool's version back into the registry, or skip, per item.
 - **Global & project scopes** — System-wide configs (`~/...`) and repo-committed configs (`.mcp.json`, `.cursor/`, `.devin/`, `.github/`, …). Registering a project auto-imports everything already configured in it.
 - **Format translation** — One canonical model per entity; handlers translate to each tool's format: JSON dialects (standard / VS Code / OpenCode), TOML (Codex — comments and formatting preserved via `tomlkit`), markdown with frontmatter variants, `SKILL.md` folders, Gemini's TOML commands, Warp's YAML workflows.

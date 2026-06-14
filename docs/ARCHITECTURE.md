@@ -383,7 +383,7 @@ comparing **three hashes**:
 ```
 
 `read_only` targets surface as `unsupported`. Statuses the UI renders:
-`✓ in sync · ↑ outdated · ↓ drifted · ⚠ conflict · · not synced · ✕ missing`.
+`✓ in sync · ↑ outdated · ↓ drifted · ⚠ conflict · ○ not synced · ✕ missing`.
 
 ### 6.2 plan_sync (dry run)
 

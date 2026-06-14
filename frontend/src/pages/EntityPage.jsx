@@ -64,7 +64,12 @@ export function EntityPage({ cfg, scope, projectId, integrations, addToast }) {
     }, [cfg, scope, projectId, needsProject, addToast]);
 
     useEffect(() => {
+        // Scope/project changed: drop all selections and any pending plan so we
+        // never try to sync stale entities/targets to tools that may not even
+        // support the new scope.
         setSelected(new Set()); setSelectedImports(new Set());
+        setTargets(new Set());
+        setPlan(null); setPlanContext(null);
         setDiscovered(null); setTab('registry'); setEditing(null);
         load();
     }, [load]);

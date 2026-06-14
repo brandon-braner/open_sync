@@ -211,6 +211,8 @@ def get_sync_states(entity_ids: list[str]) -> dict[tuple[str, str], dict]:
     """Map (entity_id, integration) → sync_state row dict."""
     if not entity_ids:
         return {}
+    # Build a `?,?,?` placeholder string — it contains ONLY '?' characters, so
+    # there is no injection surface; the values are bound as parameters below.
     placeholders = ",".join("?" * len(entity_ids))
     with _db() as conn:
         rows = conn.execute(
@@ -275,6 +277,8 @@ def list_backups(limit: int = 50) -> list[dict]:
 def prune_backup_records(keep_ids: list[str]) -> None:
     with _db() as conn:
         if keep_ids:
+            # `?,?,?` placeholder string is built only from '?' — values are
+            # bound as parameters, so this is not an injection surface.
             placeholders = ",".join("?" * len(keep_ids))
             conn.execute(
                 f"DELETE FROM backup_runs WHERE id NOT IN ({placeholders})", keep_ids

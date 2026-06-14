@@ -57,6 +57,59 @@ def test_project_scope_requires_project_id(client):
     assert resp.status_code == 400
 
 
+def test_list_project_scope_requires_project_id(client):
+    # GET listing must require project_id for project scope, same as create.
+    resp = client.get("/api/mcp", params={"scope": "project"})
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# /api/sync/* error handling
+# ---------------------------------------------------------------------------
+
+
+def test_sync_plan_invalid_kind_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "unknown-kind", "entity_ids": ["x"], "integrations": ["y"]},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_plan_empty_entity_ids_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "mcp", "entity_ids": [], "integrations": ["claude_code"]},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_plan_empty_integrations_400(client):
+    resp = client.post(
+        "/api/sync/plan",
+        json={"kind": "mcp", "entity_ids": ["x"], "integrations": []},
+    )
+    assert resp.status_code == 400
+
+
+def test_sync_apply_unknown_plan_409(client):
+    # Applying a non-existent / expired plan returns 409; FastAPI serialises
+    # HTTPException detail as {"detail": "..."}.
+    resp = client.post("/api/sync/apply", json={"plan_id": "does-not-exist"})
+    assert resp.status_code == 409
+    body = resp.json()
+    assert "detail" in body and "expired" in body["detail"].lower()
+
+
+def test_sync_pull_unknown_entity_integration_404(client):
+    # PullRequest is {entity_id, integration} — no `kind` field.
+    resp = client.post(
+        "/api/sync/pull",
+        json={"entity_id": "nope", "integration": "claude_code"},
+    )
+    assert resp.status_code == 404
+
+
 def test_discover_import_status_sync_flow(client, home):
     cfg = home / ".cursor" / "mcp.json"
     cfg.parent.mkdir(parents=True)

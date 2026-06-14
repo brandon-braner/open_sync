@@ -5,6 +5,7 @@ import base64
 import json
 import os
 
+import pytest
 import tomlkit
 
 from opensync.engine.handlers import HANDLERS
@@ -106,6 +107,47 @@ def test_json_mcp_remove(tmp_path):
     )
     apply_changes(handler.plan_remove(cfg, ["a"], opts))
     assert list(handler.read(cfg, opts)) == ["b"]
+
+
+def test_json_mcp_corrupt_file_is_not_clobbered(tmp_path):
+    """A briefly-corrupt config must not be silently rewritten from scratch.
+
+    `plan_write` raises so the engine can surface a warning and skip the write,
+    rather than dropping the user's unrelated keys. `read` stays lenient ({})
+    per the "read never raises" invariant.
+    """
+    from opensync.engine.handlers import CorruptConfigError
+
+    handler = HANDLERS["json_mcp"]
+    cfg = tmp_path / "claude.json"
+    cfg.write_text("{ not valid json")
+    opts = {"root_key": "mcpServers", "style": "standard"}
+    original = cfg.read_text()
+
+    # read must not raise, and must not pretend the section is usable
+    assert handler.read(cfg, opts) == {}
+
+    # plan_write must refuse instead of overwriting from an empty dict
+    with pytest.raises(CorruptConfigError):
+        handler.plan_write(cfg, [McpServer(name="a", command="a")], opts)
+
+    # the corrupt file is left untouched on disk
+    assert cfg.read_text() == original
+
+
+def test_json_mcp_non_object_json_is_not_clobbered(tmp_path):
+    """A JSON file that isn't an object (e.g. an array) is equally unsafe to
+    merge into, so plan_write must refuse rather than clobber it."""
+    from opensync.engine.handlers import CorruptConfigError
+
+    handler = HANDLERS["json_mcp"]
+    cfg = tmp_path / "arr.json"
+    cfg.write_text("[1, 2, 3]")
+    opts = {"root_key": "mcpServers", "style": "standard"}
+
+    with pytest.raises(CorruptConfigError):
+        handler.plan_write(cfg, [McpServer(name="a", command="a")], opts)
+    assert cfg.read_text() == "[1, 2, 3]"
 
 
 # ---------------------------------------------------------------------------
