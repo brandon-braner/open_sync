@@ -17,20 +17,20 @@ manifest. There is no other place to register a tool.
 ## Architecture
 
 ```
-backend/integrations/
+backend/opensync/integrations/
 ├── __init__.py      # ALL_INTEGRATIONS registry
 ├── base.py          # Integration & EntityTarget models
 ├── codex.py         # Example integration
 └── ...              # One file per tool
 
-backend/engine/handlers/   # Format handlers (shared across tools)
+backend/opensync/engine/handlers/   # Format handlers (shared across tools)
 ```
 
 ## Step-by-Step Guide
 
 ### 1. Create the manifest
 
-Create `backend/integrations/{tool_id}.py`:
+Create `backend/opensync/integrations/{tool_id}.py`:
 
 ```python
 from integrations.base import EntityTarget, Integration
@@ -88,13 +88,13 @@ from integrations.base import EntityTarget, Integration
 | `llm_json` | LLM provider discovery | `root_key` (read-only) |
 
 If the tool uses a genuinely new format, add a handler in
-`backend/engine/handlers/` implementing `read` / `plan_write` /
+`backend/opensync/engine/handlers/` implementing `read` / `plan_write` /
 `plan_remove` (return `FileChange` objects — never write files directly),
-and register it in `backend/engine/handlers/__init__.py`.
+and register it in `backend/opensync/engine/handlers/__init__.py`.
 
 ### 3. Register it
 
-In `backend/integrations/__init__.py`, import the manifest and append it to
+In `backend/opensync/integrations/__init__.py`, import the manifest and append it to
 `ALL_INTEGRATIONS`.
 
 ### 4. Run the tests

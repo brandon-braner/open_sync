@@ -103,37 +103,47 @@ Register a project directory under **Projects**, and OpenSync manages that repo'
 
 ## 🏗 Architecture
 
+> **Full architecture, component model, data flows, and the drift state
+> machine:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+> **Engineering standards for contributors and AI agents:**
+> [`AGENTS.md`](AGENTS.md) · [`CLAUDE.md`](CLAUDE.md).
+> **Adding a tool integration:** [`docs/CONTRIBUTING_INTEGRATIONS.md`](docs/CONTRIBUTING_INTEGRATIONS.md).
+
 ```
 backend/
-├── integrations/        # one declarative manifest per tool (the single source of truth)
-│   └── base.py          #   Integration / EntityTarget models
-├── engine/
-│   ├── engine.py        # discover / import / status / plan / apply / pull
-│   ├── handlers/        # format handlers: json_mcp, toml_mcp, markdown_dir,
-│   │                    #   skill_dir, toml_command, yaml_workflow, llm_json
-│   ├── paths.py         # ~ / project-relative / per-OS path resolution
-│   ├── hash.py          # per-item canonical hashing (drift detection)
-│   └── backup.py        # central rotated backups
-├── db/                  # SQLite schema v2 + v1 migration
-├── store.py             # generic CRUD (entities, projects, sync_state)
-├── routers/             # /api/integrations, /api/{kind}, /api/sync, ...
-└── tests/               # manifest invariants, handler golden tests,
-                         #   engine state machine, migration, API flows
+├── opensync/
+│   ├── integrations/     # one declarative manifest per tool (single source of truth)
+│   │   └── base.py       #   Integration / EntityTarget models
+│   ├── engine/
+│   │   ├── engine.py     # discover / import / status / plan / apply / pull
+│   │   ├── handlers/     # format handlers: json_mcp, toml_mcp, markdown_dir,
+│   │   │                 #   skill_dir, toml_command, yaml_workflow, llm_json
+│   │   ├── paths.py      # ~ / project-relative / per-OS path resolution
+│   │   ├── hash.py       # per-item canonical hashing (drift detection)
+│   │   └── backup.py     # central rotated backups
+│   ├── db/               # SQLite schema v2 + v1 migration
+│   ├── store.py          # generic CRUD (entities, projects, sync_state)
+│   └── routers/          # /api/integrations, /api/{kind}, /api/sync, ...
+└── tests/                # manifest invariants, handler golden tests,
+                          #   engine state machine, migration, API flows
 frontend/src/
-├── entityKinds.js       # per-kind UI config (label, icon, form)
-├── pages/EntityPage.jsx # generic list + sync-status matrix + import tab
-└── components/          # DiffModal, StatusPill, ScopeBar, Sidebar, forms
+├── entityKinds.js        # per-kind UI config (label, icon, form)
+├── pages/EntityPage.jsx  # generic list + sync-status matrix + import tab
+└── components/           # DiffModal, StatusPill, ScopeBar, Sidebar, forms
 ```
 
 Key design rules:
 
-- **Manifests drive everything.** No per-tool paths or formats exist outside `backend/integrations/`. The frontend gets all tool metadata from `GET /api/integrations`.
+- **Manifests drive everything.** No per-tool paths or formats exist outside `backend/opensync/integrations/`. The frontend gets all tool metadata from `GET /api/integrations`.
 - **Handlers plan, the engine writes.** Handlers return `FileChange(path, before, after)` objects; the engine diffs, backs up, and applies them — that's what makes dry-run previews and backups universal.
 - **Per-item hashing.** Drift is detected on the parsed item, not file bytes, so tools that rewrite their config files (Claude Code does constantly) don't cause false drift.
 
 ### Adding a new tool
 
-Create one manifest file in `backend/integrations/` and add it to `ALL_INTEGRATIONS` — see [docs/CONTRIBUTING_INTEGRATIONS.md](docs/CONTRIBUTING_INTEGRATIONS.md). The manifest tests (`tests/test_manifests.py`) validate it automatically.
+Create one manifest file in `backend/opensync/integrations/` and add it to
+`ALL_INTEGRATIONS` — see [docs/CONTRIBUTING_INTEGRATIONS.md](docs/CONTRIBUTING_INTEGRATIONS.md).
+The manifest tests (`tests/test_manifests.py`) validate it automatically. Full
+component map and design rules: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
