@@ -7,9 +7,23 @@ each integration's config files.
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def slugify_skill_name(name: str) -> str:
+    """Normalise a skill name to the Agent Skills convention.
+
+    Lower-cased, surrounding whitespace trimmed, internal whitespace turned
+    into single hyphens, and runs of hyphens collapsed. This is the name used
+    for both the skill folder and the SKILL.md frontmatter `name`, so the
+    registry and on-disk representation stay in sync.
+    """
+    slug = re.sub(r"\s+", "-", name.strip().lower())
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +65,11 @@ class SkillEntity(BaseModel):
     description: str = ""
     content: str = ""
     files: dict[str, SkillFile] = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def _normalise_name(cls, v: str) -> str:
+        return slugify_skill_name(v)
 
 
 class RuleEntity(BaseModel):

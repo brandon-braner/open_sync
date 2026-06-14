@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { MarkdownEditor } from '../ui/MarkdownEditor';
 import { SkillFileEditor } from '../ui/SkillFileEditor';
 
+// Mirror of backend slugify_skill_name: the folder name and SKILL.md
+// frontmatter `name` are always this lowercase, hyphenated slug.
+function slugify(name) {
+    return name.trim().toLowerCase().replace(/\s+/g, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '');
+}
+
 export function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
     const [form, setForm] = useState({
         name: initialData?.name || '',
@@ -13,9 +19,11 @@ export function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
     const [files, setFiles] = useState({ ...(initialData?.files || {}) });
     const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+    const slug = slugify(form.name);
+
     const submit = (e) => {
         e.preventDefault();
-        if (!form.name.trim()) return;
+        if (!slug) return;
         onSave({
             name: form.name.trim(),
             description: form.description.trim() || null,
@@ -26,7 +34,13 @@ export function SkillForm({ initialData, onSave, onCancel, saveLabel }) {
 
     return (
         <form className="add-form" onSubmit={submit}>
-            <div className="form-group"><label>Name *</label><input value={form.name} onChange={set('name')} placeholder="my-skill" required /></div>
+            <div className="form-group">
+                <label>Name *</label>
+                <input value={form.name} onChange={set('name')} placeholder="my-skill" required />
+                {slug && slug !== form.name.trim() && (
+                    <span className="md-label-hint">Folder &amp; SKILL.md name: <code>{slug}</code></span>
+                )}
+            </div>
             <div className="form-group full"><label>Description</label><input value={form.description} onChange={set('description')} placeholder="Short description" /></div>
             <div className="form-group full">
                 <label>Content / Instructions <span className="md-label-hint">(SKILL.md body — Markdown supported)</span></label>
